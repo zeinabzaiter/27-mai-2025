@@ -10,8 +10,13 @@ st.set_page_config(page_title="Surveillance S. aureus 2024", layout="wide")
 # Load data
 @st.cache_data
 def load_data():
-    pheno = pd.read_excel("staph_aureus_pheno_final.xlsx")
-    tests = pd.read_csv("tests_par_semaine_antibiotiques_2024.csv", sep=';', encoding='ISO-8859-1')
+    pheno = pd.read_excel("staph_aureus_pheno_final.xlsx")tests = pd.read_csv("tests_par_semaine_antibiotiques_2024.csv", sep=';', encoding='ISO-8859-1')
+
+if tests.shape[1] >= 2:
+    tests.rename(columns={tests.columns[0]: "Week", tests.columns[1]: "Total"}, inplace=True)
+else:
+    st.error("❌ Le fichier 'tests_par_semaine_antibiotiques_2024.csv' est vide ou mal formaté. Vérifiez qu'il contient bien au moins deux colonnes.")
+
     antibio = pd.read_excel("other Antibiotiques staph aureus.xlsx")
     bacteria = pd.read_excel("TOUS les bacteries a etudier.xlsx")
     export = pd.read_csv("Export_StaphAureus_COMPLET.csv", encoding='utf-8')
