@@ -88,9 +88,17 @@ with onglet[2]:
 
 # Onglet 4 : Phénotypes
 with onglet[3]:
-    st.header("Phénotypes - (en développement)")
-    st.write(pheno_df.head())
+    st.header("📊 Phénotypes - Surveillance hebdomadaire")
     st.dataframe(pheno_df)
+
+    st.subheader("Graphiques de tendance par phénotype")
+    phenotypes = ["MRSA", "VRSA", "Other", "Wild"]
+    for pheno in phenotypes:
+        st.markdown(f"### {pheno}")
+        fig = px.line(pheno_df, x="Week", y=pheno, markers=True,
+                      title=f"Tendance hebdomadaire - {pheno}")
+        st.plotly_chart(fig, use_container_width=True)
+
 
 # Onglet 5 : Tableau Interactif
 with onglet[4]:
