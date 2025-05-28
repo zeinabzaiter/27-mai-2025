@@ -71,7 +71,7 @@ with onglet[2]:
     for selected_pheno in phenos:
         df = pheno_df[["Week", selected_pheno]].copy()
         df.columns = ["Week", "R"]
-        df["Total"] = pheno_df[["MRSA", "VRSA", "Wild", "Other"]].sum(axis=1)
+        df["Total"] = pheno_df[available_phenos].sum(axis=1)
 
         df["R"] = pd.to_numeric(df["R"], errors="coerce")
         df["Total"] = pd.to_numeric(df["Total"], errors="coerce")
@@ -89,7 +89,8 @@ with onglet[2]:
             df["outlier"] = df["p"] > df["upper"]
 
         fig = px.line(df, x="Week", y="p", markers=True, title=f"% hebdo - {selected_pheno}")
-        fig.add_scatter(x=df["Week"], y=df.get("upper"), mode="lines", name="Seuil d'alerte", line=dict(dash="dot", color="red"))
+        if "upper" in df:
+            fig.add_scatter(x=df["Week"], y=df["upper"], mode="lines", name="Seuil d'alerte", line=dict(dash="dot", color="red"))
         fig.add_scatter(x=df[df["outlier"]]["Week"], y=df[df["outlier"]]["p"], mode="markers", name="Alerte", marker=dict(size=14, color="darkred"))
         st.plotly_chart(fig, use_container_width=True)
 
@@ -101,6 +102,8 @@ with onglet[3]:
 # Onglet 5 : Services avec alertes
 with onglet[4]:
     st.header("\U0001F6A8 Services concernés par des alertes")
-    selected_week = st.selectbox("Semaine avec alerte", export_df["numéro semaine"].unique())
+    semaines = export_df["numéro semaine"].dropna().unique()
+    selected_week = st.selectbox("Semaine avec alerte", semaines)
     st.write(f"Alertes pour la semaine {selected_week} :")
-    st.dataframe(export_df[export_df["numéro semaine"] == selected_week][["uf", "lib_germe"]].drop_duplicates())
+    subset = export_df[export_df["numéro semaine"] == selected_week][["uf", "lib_germe"]].drop_duplicates()
+    st.dataframe(subset)
