@@ -13,15 +13,21 @@ def load_data():
     pheno = pd.read_excel("staph_aureus_pheno_final.xlsx")
     tests = pd.read_csv("tests_par_semaine_antibiotiques_2024.csv", sep=',', encoding='ISO-8859-1')
 
-    # Normalisation : s'assurer que les colonnes sont bien nommées
+    # Nettoyage des colonnes
     tests.columns = tests.columns.str.strip()
-    if len(tests.columns) >= 2:
-        if tests.columns[0].lower() != "week":
-            tests.rename(columns={tests.columns[0]: "Week"}, inplace=True)
-        if tests.columns[1].lower() != "total":
-            tests.rename(columns={tests.columns[1]: "Total"}, inplace=True)
+
+    # Renommer les colonnes pour correspondre aux attentes du code
+    if "Semaine" in tests.columns:
+        tests.rename(columns={"Semaine": "Week"}, inplace=True)
     else:
-        st.error("Le fichier 'tests_par_semaine_antibiotiques_2024.csv' ne contient pas assez de colonnes.")
+        st.error("Colonne 'Semaine' introuvable.")
+        st.stop()
+
+    if "Vancomycin" in tests.columns:
+        tests.rename(columns={"Vancomycin": "Total"}, inplace=True)
+    else:
+        st.error("Colonne 'Vancomycin' introuvable pour calculer 'Total'.")
+        st.stop()
 
     antibio = pd.read_excel("other Antibiotiques staph aureus.xlsx")
     bacteria = pd.read_excel("TOUS les bacteries a etudier.xlsx")
