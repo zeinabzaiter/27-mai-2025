@@ -13,21 +13,14 @@ def load_data():
     pheno = pd.read_excel("staph_aureus_pheno_final.xlsx")
     tests = pd.read_csv("tests_par_semaine_antibiotiques_2024.csv", sep=',', encoding='ISO-8859-1')
 
-    # Nettoyage des colonnes
     tests.columns = tests.columns.str.strip()
-
-    # Renommer les colonnes pour correspondre aux attentes du code
-    if "Semaine" in tests.columns:
-        tests.rename(columns={"Semaine": "Week"}, inplace=True)
+    if len(tests.columns) >= 2:
+        if tests.columns[0].lower() != "week":
+            tests.rename(columns={tests.columns[0]: "Week"}, inplace=True)
+        if tests.columns[1].lower() != "total":
+            tests.rename(columns={tests.columns[1]: "Total"}, inplace=True)
     else:
-        st.error("Colonne 'Semaine' introuvable.")
-        st.stop()
-
-    if "Vancomycin" in tests.columns:
-        tests.rename(columns={"Vancomycin": "Total"}, inplace=True)
-    else:
-        st.error("Colonne 'Vancomycin' introuvable pour calculer 'Total'.")
-        st.stop()
+        st.error("Le fichier 'tests_par_semaine_antibiotiques_2024.csv' ne contient pas assez de colonnes.")
 
     antibio = pd.read_excel("other Antibiotiques staph aureus.xlsx")
     bacteria = pd.read_excel("TOUS les bacteries a etudier.xlsx")
@@ -42,16 +35,15 @@ st.title("\U0001F9A0 Dashboard - Surveillance Bactériologique 2024")
 # Tabs
 onglet = st.tabs(["Toutes les bactéries", "Antibiotiques", "Phénotypes", "Tableau Interactif", "Alertes par Service"])
 
-# Onglet 1 : Liste des bactéries et lien vers S. aureus
+# Onglet 1 : Liste des bactéries
 with onglet[0]:
     st.header("\U0001F52C Bactéries à surveiller")
     selected_bacteria = st.selectbox("Choisissez une bactérie :", bacteria_df.iloc[:, 0].unique())
     st.dataframe(bacteria_df)
-
     if "staph" in selected_bacteria.lower():
         st.success("Vous avez sélectionné Staphylococcus aureus. Consultez les autres onglets pour l'analyse.")
 
-# Onglet 2 : Résistance Antibiotiques
+# Onglet 2 : Antibiotiques
 with onglet[1]:
     st.header("\U0001F489 Résistance hebdomadaire aux antibiotiques")
     selected_ab = st.selectbox("Choisir un antibiotique", antibio_df.columns[1:])
@@ -69,7 +61,6 @@ with onglet[1]:
     df["SE"] = np.sqrt(df["p_hat"] * (1 - df["p_hat"]) / df["Total"])
     df["upper"] = df["p_hat"] + 1.96 * df["SE"]
     df["outlier"] = df["p"] > df["upper"]
-
     if selected_ab.lower() == "vancomycine":
         df["outlier"] = df["R"] >= 1
 
@@ -81,7 +72,6 @@ with onglet[1]:
 # Onglet 3 : Phénotypes
 with onglet[2]:
     st.header("\U0001F9EC Suivi des phénotypes de S. aureus")
-
     available_phenos = pheno_df.columns[1:].tolist()
     default_selection = ["Wild"] if "Wild" in available_phenos else []
     phenos = st.multiselect("Choisir un ou plusieurs phénotypes", available_phenos, default=default_selection)
@@ -90,7 +80,6 @@ with onglet[2]:
         df = pheno_df[["Week", selected_pheno]].copy()
         df.columns = ["Week", "R"]
         df["Total"] = pheno_df[available_phenos].sum(axis=1)
-
         df["R"] = pd.to_numeric(df["R"], errors="coerce")
         df["Total"] = pd.to_numeric(df["Total"], errors="coerce")
 
@@ -122,8 +111,12 @@ with onglet[4]:
     st.header("\U0001F6A8 Services concernés par des alertes")
     semaines = export_df["numéro semaine"].dropna().unique()
     selected_week = st.selectbox("Semaine avec alerte", semaines)
-
     st.write(f"Alertes pour la semaine {selected_week} :")
-    subset = export_df[export_df["numéro semaine"] == selected_week][["uf", "lib_germe", "type_alerte"]].drop_duplicates()
-    st.dataframe(subset)
 
+    # Vérifie si colonne "type_alerte" existe sinon juste uf et lib_germe
+    alert_cols = [col for col in ["uf", "lib_germe", "type_alerte"] if col in export_df.columns]
+    if alert_cols:
+        subset = export_df[export_df["numéro semaine"] == selected_week][alert_cols].drop_duplicates()
+        st.dataframe(subset)
+    else:
+        st.warning("Colonnes attendues non trouvées dans les données d'export.")
