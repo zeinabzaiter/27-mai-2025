@@ -54,6 +54,9 @@ with onglet[1]:
 
     df["R"] = pd.to_numeric(df["R"], errors="coerce")
     df["Total"] = pd.to_numeric(df["Total"], errors="coerce")
+    df.dropna(subset=["R", "Total"], inplace=True)
+    df = df[df["Total"] > 0]
+
     df["p"] = df["R"] / df["Total"]
     df["n_last_8"] = df["Total"].rolling(window=8, min_periods=1).sum()
     df["event_last_8"] = df["R"].rolling(window=8, min_periods=1).sum()
@@ -82,6 +85,8 @@ with onglet[2]:
         df["Total"] = pheno_df[available_phenos].sum(axis=1)
         df["R"] = pd.to_numeric(df["R"], errors="coerce")
         df["Total"] = pd.to_numeric(df["Total"], errors="coerce")
+        df.dropna(subset=["R", "Total"], inplace=True)
+        df = df[df["Total"] > 0]
 
         if selected_pheno.lower() == "vrsa":
             df["outlier"] = df["R"] >= 1
@@ -118,5 +123,10 @@ with onglet[4]:
     if alert_cols:
         subset = export_df[export_df["numéro semaine"] == selected_week][alert_cols].drop_duplicates()
         st.dataframe(subset)
+
+        # Ajouter un tableau résumé par type_alerte
+        if "type_alerte" in subset.columns:
+            st.subheader("Résumé des types d'alerte")
+            st.dataframe(subset["type_alerte"].value_counts().reset_index().rename(columns={"index": "Type d'Alerte", "type_alerte": "Nombre"}))
     else:
         st.warning("Colonnes attendues non trouvées dans les données d'export.")
