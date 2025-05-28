@@ -24,8 +24,7 @@ def load_data():
         df["Week"] = pd.to_numeric(df["Week"], errors="coerce")
 
     # Nettoyage export
-    export.columns = export.columns.str.strip()
-    export.columns = export.columns.str.lower().str.normalize('NFKD').str.encode('ascii', errors='ignore').str.decode('utf-8')
+    export.columns = export.columns.str.strip().str.lower().str.normalize('NFKD').str.encode('ascii', errors='ignore').str.decode('utf-8')
 
     return pheno, tests, antibio, bacteria, export
 
@@ -104,7 +103,7 @@ with onglet[5]:
     st.header("\U0001F6A8 Services concernés par des alertes")
     semaine_selectionnee = st.number_input("Semaine avec alerte", min_value=1, max_value=52, step=1)
 
-    st.write("Colonnes disponibles :", export_df.columns.tolist())
+    st.write("Colonnes dans export_df:", export_df.columns.tolist())
 
     required_cols = ["numero semaine", "uf", "lib_germe", "type_alerte"]
     if all(col in export_df.columns for col in required_cols):
