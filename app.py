@@ -11,7 +11,7 @@ st.set_page_config(page_title="Surveillance S. aureus 2024", layout="wide")
 @st.cache_data
 def load_data():
     pheno = pd.read_excel("staph_aureus_pheno_final.xlsx")
-    tests = pd.read_csv("tests_par_semaine_antibiotiques_2024.csv", sep=';', encoding='ISO-8859-1')
+    tests = pd.read_csv("tests_par_semaine_antibiotiques_2024.csv", sep=',', encoding='ISO-8859-1')
 
     # Normalisation : s'assurer que les colonnes sont bien nommées
     tests.columns = tests.columns.str.strip()
