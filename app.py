@@ -35,16 +35,20 @@ with onglet[0]:
 
 # Onglet 2 : Résistance Antibiotiques
 with onglet[1]:
-    st.header("\U0001F489 Résistance hebdomadaire aux antibiotiques")
+    st.header("💉 Résistance hebdomadaire aux antibiotiques")
+
     selected_ab = st.selectbox("Choisir un antibiotique", antibio_df.columns[1:])
 
     df = antibio_df[["Week", selected_ab]].copy()
     df.columns = ["Week", "R"]
-    df["Total"] = tests_df.iloc[:, 0]
+
+    # Ajouter les totaux hebdomadaires
+    df = df.merge(tests_df[["Week", "Total"]], on="Week", how="left")
 
     df["R"] = pd.to_numeric(df["R"], errors="coerce")
     df["Total"] = pd.to_numeric(df["Total"], errors="coerce")
     df["p"] = df["R"] / df["Total"]
+
     df["n_last_8"] = df["Total"].rolling(window=8, min_periods=1).sum()
     df["event_last_8"] = df["R"].rolling(window=8, min_periods=1).sum()
     df["p_hat"] = df["event_last_8"] / df["n_last_8"]
@@ -58,6 +62,7 @@ with onglet[1]:
     fig = px.line(df, x="Week", y="p", markers=True, title=f"% de résistance hebdo - {selected_ab}")
     fig.add_scatter(x=df["Week"], y=df["upper"], mode="lines", name="Seuil d'alerte", line=dict(dash="dot", color="red"))
     fig.add_scatter(x=df[df["outlier"]]["Week"], y=df[df["outlier"]]["p"], mode="markers", name="Alerte", marker=dict(size=14, color="darkred"))
+
     st.plotly_chart(fig, use_container_width=True)
 
 # Onglet 3 : Phénotypes
