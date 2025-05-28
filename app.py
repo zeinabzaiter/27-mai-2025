@@ -73,6 +73,12 @@ with onglet[1]:
     fig.add_scatter(x=df[df["outlier"]]["Week"], y=df[df["outlier"]]["p"], mode="markers", name="Alerte", marker=dict(size=14, color="darkred"))
     st.plotly_chart(fig, use_container_width=True)
 
+    if df["outlier"].any():
+        st.subheader("\U0001F6A8 Semaines avec alerte")
+        st.dataframe(df[df["outlier"]][["Week", "p", "upper"]])
+    else:
+        st.info("Aucune alerte détectée selon la règle IC + moyenne mobile 8 semaines.")
+
 # Onglet 3 : Phénotypes
 with onglet[2]:
     st.header("\U0001F9EC Suivi des phénotypes de S. aureus")
@@ -106,6 +112,12 @@ with onglet[2]:
             fig.add_scatter(x=df["Week"], y=df["upper"], mode="lines", name="Seuil d'alerte", line=dict(dash="dot", color="red"))
         fig.add_scatter(x=df[df["outlier"]]["Week"], y=df[df["outlier"]]["p"], mode="markers", name="Alerte", marker=dict(size=14, color="darkred"))
         st.plotly_chart(fig, use_container_width=True)
+
+        if df["outlier"].any():
+            st.subheader("\U0001F6A8 Semaines avec alerte")
+            st.dataframe(df[df["outlier"]][["Week", "p", "upper"]])
+        else:
+            st.info("Aucune alerte détectée selon la règle IC + moyenne mobile 8 semaines.")
 
 # Onglet 4 : Tableau interactif
 with onglet[3]:
