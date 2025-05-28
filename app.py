@@ -4,6 +4,8 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
+import os
+st.write("📁 Fichiers présents dans le dossier :", os.listdir())
 
 # Load data
 @st.cache_data
@@ -13,7 +15,7 @@ def load_data():
     tests = pd.read_csv("tests_par_semaine_antibiotiques_2024.csv", sep=';', encoding='ISO-8859-1')
     antibio = pd.read_excel("other Antibiotiques staph aureus.xlsx")
     bacteria = pd.read_excel("TOUS les bacteries a etudier.xlsx")
-    export = pd.read_csv("Export_StaphAureus_COMPLET.csv", encoding='utf-8')
+    export = pd.read_csv("Export_StaphAureus_COMPLET.csv", encoding="utf-8")
     return pheno, tests, antibio, bacteria, export
 
 pheno_df, tests_df, antibio_df, bacteria_df, export_df = load_data()
