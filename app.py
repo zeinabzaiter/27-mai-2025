@@ -78,27 +78,33 @@ def tracer_resistance(df, source):
 # Onglet 2 : Antibiotiques - Tests
 with onglet[1]:
     st.header("\U0001F489 Résistance hebdomadaire (Tests)")
+    st.write(tests_df.head())
     tracer_resistance(tests_df, source="tests")
 
 # Onglet 3 : Antibiotiques - Other
 with onglet[2]:
     st.header("\U0001F489 Résistance hebdomadaire (Other Antibiotiques)")
+    st.write(antibio_df.head())
     tracer_resistance(antibio_df, source="other")
 
 # Onglet 4 : Phénotypes
 with onglet[3]:
     st.header("Phénotypes - (en développement)")
+    st.write(pheno_df.head())
     st.dataframe(pheno_df)
 
 # Onglet 5 : Tableau Interactif
 with onglet[4]:
     st.header("Exploration Interactive")
+    st.write(export_df.head())
     st.dataframe(export_df)
 
 # Onglet 6 : Alertes par Service
 with onglet[5]:
     st.header("\U0001F6A8 Services concernés par des alertes")
     semaine_selectionnee = st.number_input("Semaine avec alerte", min_value=1, max_value=52, step=1)
+
+    st.write("Colonnes disponibles :", export_df.columns.tolist())
 
     required_cols = ["numero semaine", "uf", "lib_germe", "type_alerte"]
     if all(col in export_df.columns for col in required_cols):
