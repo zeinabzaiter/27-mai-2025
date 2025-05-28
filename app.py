@@ -1,4 +1,5 @@
 # app.py
+st.set_page_config(page_title="Surveillance S. aureus 2024", layout="wide")
 
 import streamlit as st
 import pandas as pd
@@ -20,7 +21,6 @@ def load_data():
 
 pheno_df, tests_df, antibio_df, bacteria_df, export_df = load_data()
 
-st.set_page_config(page_title="Surveillance S. aureus 2024", layout="wide")
 st.title("\U0001F9A0 Dashboard - Surveillance Bactériologique 2024")
 
 # Tabs
