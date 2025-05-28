@@ -12,24 +12,15 @@ st.set_page_config(page_title="Surveillance S. aureus 2024", layout="wide")
 def load_data():
     pheno = pd.read_excel("staph_aureus_pheno_final.xlsx")
     tests = pd.read_csv("tests_par_semaine_antibiotiques_2024.csv", sep=',', encoding='ISO-8859-1')
-
-    tests.columns = tests.columns.str.strip()
-    if len(tests.columns) >= 2:
-        if tests.columns[0].lower() != "semaine":
-            tests.rename(columns={tests.columns[0]: "Week"}, inplace=True)
-    else:
-        st.error("Le fichier 'tests_par_semaine_antibiotiques_2024.csv' ne contient pas assez de colonnes.")
-
     antibio = pd.read_excel("other Antibiotiques staph aureus.xlsx")
-    antibio.columns = antibio.columns.str.strip()
-    if len(antibio.columns) >= 2:
-        if antibio.columns[0].lower() != "week":
-            antibio.rename(columns={antibio.columns[0]: "Week"}, inplace=True)
-    else:
-        st.error("Le fichier 'other Antibiotiques staph aureus.xlsx' ne contient pas assez de colonnes.")
-
     bacteria = pd.read_excel("TOUS les bacteries a etudier.xlsx")
     export = pd.read_csv("Export_StaphAureus_COMPLET.csv", encoding='utf-8')
+
+    for df in [tests, antibio]:
+        df.columns = df.columns.str.strip()
+        if "Semaine" in df.columns:
+            df.rename(columns={"Semaine": "Week"}, inplace=True)
+        df["Week"] = pd.to_numeric(df["Week"], errors="coerce")
 
     return pheno, tests, antibio, bacteria, export
 
@@ -48,121 +39,66 @@ with onglet[0]:
     if "staph" in selected_bacteria.lower():
         st.success("Vous avez sélectionné Staphylococcus aureus. Consultez les autres onglets pour l'analyse.")
 
+# Fonction commune
+
+def tracer_resistance(df, source):
+    ab_cols = [col for col in df.columns if "%" in col and "R" in col]
+    selected_ab = st.selectbox("Choisir un antibiotique (% colonne)", ab_cols, key=source)
+
+    df_plot = df[["Week", selected_ab]].copy()
+    df_plot.columns = ["Week", "p"]
+    df_plot["p"] = pd.to_numeric(df_plot["p"], errors="coerce") / 100
+
+    df_plot = df_plot.dropna(subset=["Week", "p"])
+    df_plot = df_plot.sort_values("Week")
+
+    df_plot["n_last_8"] = 8
+    df_plot["event_last_8"] = df_plot["p"].rolling(window=8, min_periods=1).sum()
+    df_plot["p_hat"] = df_plot["event_last_8"] / df_plot["n_last_8"]
+    df_plot["SE"] = np.sqrt(df_plot["p_hat"] * (1 - df_plot["p_hat"]) / df_plot["n_last_8"])
+    df_plot["upper"] = df_plot["p_hat"] + 1.96 * df_plot["SE"]
+    df_plot["outlier"] = df_plot["p"] > df_plot["upper"]
+
+    fig = px.line(df_plot, x="Week", y="p", markers=True, title=f"% de résistance hebdo - {selected_ab}")
+    fig.add_scatter(x=df_plot["Week"], y=df_plot["upper"], mode="lines", name="Seuil d'alerte", line=dict(dash="dot", color="red"))
+    fig.add_scatter(x=df_plot[df_plot["outlier"]]["Week"], y=df_plot[df_plot["outlier"]]["p"], mode="markers", name="Alerte", marker=dict(size=12, color="darkred"))
+    st.plotly_chart(fig, use_container_width=True)
+
+    if df_plot["outlier"].any():
+        st.subheader("\U0001F6A8 Semaines avec alerte")
+        st.dataframe(df_plot[df_plot["outlier"]][["Week", "p", "upper"]])
+    else:
+        st.info("Aucune alerte détectée selon la règle IC + moyenne mobile 8 semaines.")
+
 # Onglet 2 : Antibiotiques - Tests
 with onglet[1]:
     st.header("\U0001F489 Résistance hebdomadaire (Tests)")
-    ab_cols = [col for col in tests_df.columns if col.startswith("%")]
-    selected_ab = st.selectbox("Choisir un antibiotique (% colonne)", ab_cols)
-
-    df = tests_df[["Week", selected_ab]].copy()
-    df.columns = ["Week", "p"]
-    df["p"] = pd.to_numeric(df["p"], errors="coerce") / 100
-
-    df["n_last_8"] = 8  # approximation
-    df["event_last_8"] = df["p"].rolling(window=8, min_periods=1).sum()
-    df["p_hat"] = df["event_last_8"] / df["n_last_8"]
-    df["SE"] = np.sqrt(df["p_hat"] * (1 - df["p_hat"]) / df["n_last_8"])
-    df["upper"] = df["p_hat"] + 1.96 * df["SE"]
-    df["outlier"] = df["p"] > df["upper"]
-
-    fig = px.line(df, x="Week", y="p", markers=True, title=f"% de résistance hebdo - {selected_ab}")
-    fig.add_scatter(x=df["Week"], y=df["upper"], mode="lines", name="Seuil d'alerte", line=dict(dash="dot", color="red"))
-    fig.add_scatter(x=df[df["outlier"]]["Week"], y=df[df["outlier"]]["p"], mode="markers", name="Alerte", marker=dict(size=14, color="darkred"))
-    st.plotly_chart(fig, use_container_width=True)
-
-    if df["outlier"].any():
-        st.subheader("\U0001F6A8 Semaines avec alerte")
-        st.dataframe(df[df["outlier"]][["Week", "p", "upper"]])
-    else:
-        st.info("Aucune alerte détectée selon la règle IC + moyenne mobile 8 semaines.")
+    tracer_resistance(tests_df, source="tests")
 
 # Onglet 3 : Antibiotiques - Other
 with onglet[2]:
     st.header("\U0001F489 Résistance hebdomadaire (Other Antibiotiques)")
-    ab_cols = [col for col in antibio_df.columns if col.startswith("%")]
-    selected_ab = st.selectbox("Choisir un antibiotique (% colonne)", ab_cols, key="other_ab")
-
-    df = antibio_df[["Week", selected_ab]].copy()
-    df.columns = ["Week", "p"]
-    df["p"] = pd.to_numeric(df["p"], errors="coerce") / 100
-
-    df["n_last_8"] = 8
-    df["event_last_8"] = df["p"].rolling(window=8, min_periods=1).sum()
-    df["p_hat"] = df["event_last_8"] / df["n_last_8"]
-    df["SE"] = np.sqrt(df["p_hat"] * (1 - df["p_hat"]) / df["n_last_8"])
-    df["upper"] = df["p_hat"] + 1.96 * df["SE"]
-    df["outlier"] = df["p"] > df["upper"]
-
-    fig = px.line(df, x="Week", y="p", markers=True, title=f"% de résistance hebdo - {selected_ab}")
-    fig.add_scatter(x=df["Week"], y=df["upper"], mode="lines", name="Seuil d'alerte", line=dict(dash="dot", color="red"))
-    fig.add_scatter(x=df[df["outlier"]]["Week"], y=df[df["outlier"]]["p"], mode="markers", name="Alerte", marker=dict(size=14, color="darkred"))
-    st.plotly_chart(fig, use_container_width=True)
-
-    if df["outlier"].any():
-        st.subheader("\U0001F6A8 Semaines avec alerte")
-        st.dataframe(df[df["outlier"]][["Week", "p", "upper"]])
-    else:
-        st.info("Aucune alerte détectée selon la règle IC + moyenne mobile 8 semaines.")
+    tracer_resistance(antibio_df, source="other")
 
 # Onglet 4 : Phénotypes
 with onglet[3]:
-    st.header("\U0001F9EC Suivi des phénotypes de S. aureus")
-    available_phenos = pheno_df.columns[1:].tolist()
-    default_selection = ["Wild"] if "Wild" in available_phenos else []
-    phenos = st.multiselect("Choisir un ou plusieurs phénotypes", available_phenos, default=default_selection)
-
-    for selected_pheno in phenos:
-        df = pheno_df[["Week", selected_pheno]].copy()
-        df.columns = ["Week", "R"]
-        df["Total"] = pheno_df[available_phenos].sum(axis=1)
-        df["R"] = pd.to_numeric(df["R"], errors="coerce")
-        df["Total"] = pd.to_numeric(df["Total"], errors="coerce")
-        df.dropna(subset=["R", "Total"], inplace=True)
-        df = df[df["Total"] > 0]
-
-        if selected_pheno.lower() == "vrsa":
-            df["outlier"] = df["R"] >= 1
-            df["p"] = df["R"] / df["Total"]
-        else:
-            df["p"] = df["R"] / df["Total"]
-            df["n_last_8"] = df["Total"].rolling(window=8, min_periods=1).sum()
-            df["event_last_8"] = df["R"].rolling(window=8, min_periods=1).sum()
-            df["p_hat"] = df["event_last_8"] / df["n_last_8"]
-            df["SE"] = np.sqrt(df["p_hat"] * (1 - df["p_hat"]) / df["Total"])
-            df["upper"] = df["p_hat"] + 1.96 * df["SE"]
-            df["outlier"] = df["p"] > df["upper"]
-
-        fig = px.line(df, x="Week", y="p", markers=True, title=f"% hebdo - {selected_pheno}")
-        if "upper" in df:
-            fig.add_scatter(x=df["Week"], y=df["upper"], mode="lines", name="Seuil d'alerte", line=dict(dash="dot", color="red"))
-        fig.add_scatter(x=df[df["outlier"]]["Week"], y=df[df["outlier"]]["p"], mode="markers", name="Alerte", marker=dict(size=14, color="darkred"))
-        st.plotly_chart(fig, use_container_width=True)
-
-        if df["outlier"].any():
-            st.subheader("\U0001F6A8 Semaines avec alerte")
-            st.dataframe(df[df["outlier"]][["Week", "p", "upper"]])
-        else:
-            st.info("Aucune alerte détectée selon la règle IC + moyenne mobile 8 semaines.")
+    st.header("\U0001F9EC Phénotypes Staph aureus")
+    st.dataframe(pheno_df)
 
 # Onglet 5 : Tableau interactif
 with onglet[4]:
-    st.header("\U0001F4C4 Vue complète filtrable")
-    st.dataframe(pheno_df)
+    st.header("\U0001F5FA Tableau interactif - Export complet")
+    st.dataframe(export_df)
 
-# Onglet 6 : Services avec alertes
+# Onglet 6 : Alertes par Service
 with onglet[5]:
     st.header("\U0001F6A8 Services concernés par des alertes")
     semaines = export_df["numéro semaine"].dropna().unique()
-    selected_week = st.selectbox("Semaine avec alerte", semaines)
-    st.write(f"Alertes pour la semaine {selected_week} :")
+    semaine_selectionnee = st.selectbox("Semaine avec alerte", sorted(semaines))
 
-    alert_cols = [col for col in ["uf", "lib_germe", "type_alerte"] if col in export_df.columns]
-    if alert_cols:
-        subset = export_df[export_df["numéro semaine"] == selected_week][alert_cols].drop_duplicates()
+    subset = export_df[export_df["numéro semaine"] == semaine_selectionnee][["uf", "lib_germe", "type_alerte"]].drop_duplicates()
+    if not subset.empty:
+        st.subheader(f"Alertes pour la semaine {semaine_selectionnee} :")
         st.dataframe(subset)
-
-        if "type_alerte" in subset.columns:
-            st.subheader("Résumé des types d'alerte")
-            st.dataframe(subset["type_alerte"].value_counts().reset_index().rename(columns={"index": "Type d'Alerte", "type_alerte": "Nombre"}))
     else:
-        st.warning("Colonnes attendues non trouvées dans les données d'export.")
+        st.warning("Aucune alerte détectée pour cette semaine.")
