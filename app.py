@@ -85,6 +85,25 @@ with onglet[1]:
 with onglet[2]:
     st.header("\U0001F489 Résistance hebdomadaire (Other Antibiotiques)")
     tracer_resistance(antibio_df, source="other")
+# Onglet 4 : Phénotypes
+with onglet[3]:
+    st.header("🧬 Phénotypes de Staphylococcus aureus")
+    st.dataframe(pheno_df)
 
-# Onglet 4 à 6 : inchangés (Phénotypes, Interactif, Alertes)
-# [Code existant conservé ici, sans modification, sauf si besoin sur demande]
+# Onglet 5 : Tableau Interactif
+with onglet[4]:
+    st.header("📊 Tableau Interactif - Export complet")
+    st.dataframe(export_df)
+
+# Onglet 6 : Alertes par Service
+with onglet[5]:
+    st.header("🚨 Services concernés par des alertes")
+    semaine_selectionnee = st.number_input("Semaine avec alerte", min_value=1, max_value=52, step=1)
+
+    try:
+        subset = export_df[export_df["numero semaine"] == semaine_selectionnee][["uf", "lib_germe", "type_alerte"]].drop_duplicates()
+        st.subheader(f"Alertes pour la semaine {semaine_selectionnee} :")
+        st.dataframe(subset)
+    except KeyError as e:
+        st.error(f"Colonne manquante dans export_df : {e}")
+
