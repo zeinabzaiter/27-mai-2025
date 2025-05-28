@@ -80,11 +80,52 @@ with onglet[1]:
     st.write(tests_df.head())
     tracer_resistance(tests_df, source="tests")
 
-# Onglet 3 : Antibiotiques - Other
-with onglet[2]:
-    st.header("\U0001F489 Résistance hebdomadaire (Other Antibiotiques)")
-    st.write(antibio_df.head())
-    tracer_resistance(antibio_df, source="other")
+with onglet[3]:
+    st.header("📊 Phénotypes - Tendance hebdomadaire avec alertes")
+    st.dataframe(pheno_df)
+
+    phenotypes = ["MRSA", "VRSA", "Other", "Wild"]
+    st.subheader("Analyse des pourcentages et détection des alertes")
+
+    total_col = pheno_df[phenotypes].sum(axis=1).replace(0, np.nan)
+
+    for pheno in phenotypes:
+        st.markdown(f"### {pheno}")
+        
+        df_plot = pheno_df[["Week", pheno]].copy()
+        df_plot["total"] = total_col
+        df_plot["p"] = df_plot[pheno] / df_plot["total"]
+        
+        df_plot = df_plot.dropna(subset=["Week", "p"])
+        df_plot = df_plot.sort_values("Week")
+
+        df_plot["n_last_8"] = 8
+        df_plot["event_last_8"] = df_plot["p"].rolling(window=8, min_periods=1).sum()
+        df_plot["p_hat"] = df_plot["event_last_8"] / df_plot["n_last_8"]
+        df_plot["SE"] = np.sqrt(df_plot["p_hat"] * (1 - df_plot["p_hat"]) / df_plot["n_last_8"])
+        df_plot["upper"] = df_plot["p_hat"] + 1.96 * df_plot["SE"]
+        df_plot["outlier"] = df_plot["p"] > df_plot["upper"]
+
+        fig = px.line(df_plot, x="Week", y="p", markers=True,
+                      title=f"% hebdomadaire - {pheno}",
+                      labels={"p": "%", "Week": "Semaine"})
+
+        fig.add_scatter(x=df_plot["Week"], y=df_plot["upper"], mode="lines",
+                        name="Seuil IC 95%", line=dict(dash="dot", color="red"))
+        
+        fig.add_scatter(x=df_plot[df_plot["outlier"]]["Week"],
+                        y=df_plot[df_plot["outlier"]]["p"],
+                        mode="markers", name="Alerte",
+                        marker=dict(size=10, color="darkred", symbol="diamond"))
+
+        st.plotly_chart(fig, use_container_width=True)
+
+        if df_plot["outlier"].any():
+            st.warning("🚨 Semaines avec alertes détectées :")
+            st.dataframe(df_plot[df_plot["outlier"]][["Week", "p", "upper"]])
+        else:
+            st.success("✅ Aucune alerte détectée selon la règle IC + moyenne mobile (8 semaines).")
+
 
 # Onglet 4 : Phénotypes
 with onglet[3]:
