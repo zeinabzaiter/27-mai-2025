@@ -122,6 +122,8 @@ with onglet[4]:
     st.header("\U0001F6A8 Services concernés par des alertes")
     semaines = export_df["numéro semaine"].dropna().unique()
     selected_week = st.selectbox("Semaine avec alerte", semaines)
+
     st.write(f"Alertes pour la semaine {selected_week} :")
-    subset = export_df[export_df["numéro semaine"] == selected_week][["uf", "lib_germe"]].drop_duplicates()
+    subset = export_df[export_df["numéro semaine"] == selected_week][["uf", "lib_germe", "type_alerte"]].drop_duplicates()
     st.dataframe(subset)
+
