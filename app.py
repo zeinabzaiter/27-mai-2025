@@ -26,7 +26,6 @@ def load_data():
     # Nettoyage export
     export.columns = export.columns.str.strip()
     export.columns = export.columns.str.lower().str.normalize('NFKD').str.encode('ascii', errors='ignore').str.decode('utf-8')
-    st.write("Colonnes disponibles dans export_df :", export.columns.tolist())
 
     return pheno, tests, antibio, bacteria, export
 
@@ -85,25 +84,29 @@ with onglet[1]:
 with onglet[2]:
     st.header("\U0001F489 Résistance hebdomadaire (Other Antibiotiques)")
     tracer_resistance(antibio_df, source="other")
+
 # Onglet 4 : Phénotypes
 with onglet[3]:
-    st.header("🧬 Phénotypes de Staphylococcus aureus")
+    st.header("Phénotypes - (en développement)")
     st.dataframe(pheno_df)
 
 # Onglet 5 : Tableau Interactif
 with onglet[4]:
-    st.header("📊 Tableau Interactif - Export complet")
+    st.header("Exploration Interactive")
     st.dataframe(export_df)
 
 # Onglet 6 : Alertes par Service
 with onglet[5]:
-    st.header("🚨 Services concernés par des alertes")
+    st.header("\U0001F6A8 Services concernés par des alertes")
     semaine_selectionnee = st.number_input("Semaine avec alerte", min_value=1, max_value=52, step=1)
 
-    try:
+    required_cols = ["numero semaine", "uf", "lib_germe", "type_alerte"]
+    if all(col in export_df.columns for col in required_cols):
         subset = export_df[export_df["numero semaine"] == semaine_selectionnee][["uf", "lib_germe", "type_alerte"]].drop_duplicates()
-        st.subheader(f"Alertes pour la semaine {semaine_selectionnee} :")
-        st.dataframe(subset)
-    except KeyError as e:
-        st.error(f"Colonne manquante dans export_df : {e}")
-
+        if not subset.empty:
+            st.write(f"Alertes pour la semaine {semaine_selectionnee} :")
+            st.dataframe(subset)
+        else:
+            st.info(f"Aucune alerte trouvée pour la semaine {semaine_selectionnee}.")
+    else:
+        st.error("Les colonnes nécessaires sont absentes de export_df. Veuillez vérifier les noms exacts des colonnes.")
