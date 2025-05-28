@@ -36,41 +36,42 @@ with onglet[0]:
 # Onglet 2 : Résistance Antibiotiques
 with onglet[1]:
     st.header("\U0001F489 Résistance hebdomadaire aux antibiotiques")
-    selected_ab = st.selectbox("Choisir un antibiotique", antibio_df.columns[1:])
+    selected_abs = st.multiselect("Choisir un ou plusieurs antibiotiques", antibio_df.columns[1:], default=[])
 
-    df = antibio_df[["Week", selected_ab]].copy()
-    df.columns = ["Week", "R"]
-    df["Total"] = tests_df.iloc[:, 0]
+    for selected_ab in selected_abs:
+        df = antibio_df[["Week", selected_ab]].copy()
+        df.columns = ["Week", "R"]
+        df["Total"] = pd.to_numeric(tests_df.iloc[:, 0], errors="coerce")
+        df["R"] = pd.to_numeric(df["R"], errors="coerce")
+        df["p"] = df["R"] / df["Total"]
 
-    df["R"] = pd.to_numeric(df["R"], errors="coerce")
-    df["Total"] = pd.to_numeric(df["Total"], errors="coerce")
-    df["p"] = df["R"] / df["Total"]
-    df["n_last_8"] = df["Total"].rolling(window=8, min_periods=1).sum()
-    df["event_last_8"] = df["R"].rolling(window=8, min_periods=1).sum()
-    df["p_hat"] = df["event_last_8"] / df["n_last_8"]
-    df["SE"] = np.sqrt(df["p_hat"] * (1 - df["p_hat"]) / df["Total"])
-    df["upper"] = df["p_hat"] + 1.96 * df["SE"]
-    df["outlier"] = df["p"] > df["upper"]
+        df["n_last_8"] = df["Total"].rolling(window=8, min_periods=1).sum()
+        df["event_last_8"] = df["R"].rolling(window=8, min_periods=1).sum()
+        df["p_hat"] = df["event_last_8"] / df["n_last_8"]
+        df["SE"] = np.sqrt(df["p_hat"] * (1 - df["p_hat"]) / df["Total"])
+        df["upper"] = df["p_hat"] + 1.96 * df["SE"]
+        df["outlier"] = df["p"] > df["upper"]
 
-    if selected_ab.lower() == "vancomycine":
-        df["outlier"] = df["R"] >= 1
+        if selected_ab.lower() == "vancomycine":
+            df["outlier"] = df["R"] >= 1
 
-    fig = px.line(df, x="Week", y="p", markers=True, title=f"% de résistance hebdo - {selected_ab}")
-    fig.add_scatter(x=df["Week"], y=df["upper"], mode="lines", name="Seuil d'alerte", line=dict(dash="dot", color="red"))
-    fig.add_scatter(x=df[df["outlier"]]["Week"], y=df[df["outlier"]]["p"], mode="markers", name="Alerte", marker=dict(size=14, color="darkred"))
-    st.plotly_chart(fig, use_container_width=True)
+        fig = px.line(df, x="Week", y="p", markers=True, title=f"% de résistance hebdo - {selected_ab}")
+        fig.add_scatter(x=df["Week"], y=df["upper"], mode="lines", name="Seuil d'alerte", line=dict(dash="dot", color="red"))
+        fig.add_scatter(x=df[df["outlier"]]["Week"], y=df[df["outlier"]]["p"], mode="markers", name="Alerte", marker=dict(size=14, color="darkred"))
+        st.plotly_chart(fig, use_container_width=True)
 
 # Onglet 3 : Phénotypes
 with onglet[2]:
     st.header("\U0001F9EC Suivi des phénotypes de S. aureus")
 
-    phenos = st.multiselect("Choisir un ou plusieurs phénotypes", pheno_df.columns[1:-1], default=["Wild"])
+    available_phenos = pheno_df.columns[1:-1].tolist()
+    default_pheno = [p for p in ["Wild"] if p in available_phenos]
+    phenos = st.multiselect("Choisir un ou plusieurs phénotypes", available_phenos, default=default_pheno)
 
     for selected_pheno in phenos:
         df = pheno_df[["Week", selected_pheno]].copy()
         df.columns = ["Week", "R"]
-        df["Total"] = pheno_df[["MRSA", "VRSA", "Wild", "Other"]].sum(axis=1)
-
+        df["Total"] = pheno_df[available_phenos].sum(axis=1)
         df["R"] = pd.to_numeric(df["R"], errors="coerce")
         df["Total"] = pd.to_numeric(df["Total"], errors="coerce")
 
@@ -89,6 +90,7 @@ with onglet[2]:
         fig = px.line(df, x="Week", y="p", markers=True, title=f"% hebdo - {selected_pheno}")
         fig.add_scatter(x=df["Week"], y=df["upper"], mode="lines", name="Seuil d'alerte", line=dict(dash="dot", color="red"))
         fig.add_scatter(x=df[df["outlier"]]["Week"], y=df[df["outlier"]]["p"], mode="markers", name="Alerte", marker=dict(size=14, color="darkred"))
+        fig.update_yaxes(range=[0, max(0.05, df["p"].max()*1.2)])
         st.plotly_chart(fig, use_container_width=True)
 
 # Onglet 4 : Tableau interactif
@@ -99,6 +101,9 @@ with onglet[3]:
 # Onglet 5 : Services avec alertes
 with onglet[4]:
     st.header("\U0001F6A8 Services concernés par des alertes")
-    selected_week = st.selectbox("Semaine avec alerte", export_df["numéro semaine"].unique())
+    weeks_with_alerts = export_df["numéro semaine"].dropna().unique()
+    selected_week = st.selectbox("Semaine avec alerte", sorted(weeks_with_alerts))
+
+    filt = export_df[export_df["numéro semaine"] == selected_week]
     st.write(f"Alertes pour la semaine {selected_week} :")
-    st.dataframe(export_df[export_df["numéro semaine"] == selected_week][["uf", "lib_germe"]].drop_duplicates())
+    st.dataframe(filt[["uf", "lib_germe"]].drop_duplicates())
