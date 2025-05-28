@@ -64,6 +64,7 @@ with onglet[1]:
     df["SE"] = np.sqrt(df["p_hat"] * (1 - df["p_hat"]) / df["Total"])
     df["upper"] = df["p_hat"] + 1.96 * df["SE"]
     df["outlier"] = df["p"] > df["upper"]
+
     if selected_ab.lower() == "vancomycine":
         df["outlier"] = df["R"] >= 1
 
@@ -118,13 +119,11 @@ with onglet[4]:
     selected_week = st.selectbox("Semaine avec alerte", semaines)
     st.write(f"Alertes pour la semaine {selected_week} :")
 
-    # Vérifie si colonne "type_alerte" existe sinon juste uf et lib_germe
     alert_cols = [col for col in ["uf", "lib_germe", "type_alerte"] if col in export_df.columns]
     if alert_cols:
         subset = export_df[export_df["numéro semaine"] == selected_week][alert_cols].drop_duplicates()
         st.dataframe(subset)
 
-        # Ajouter un tableau résumé par type_alerte
         if "type_alerte" in subset.columns:
             st.subheader("Résumé des types d'alerte")
             st.dataframe(subset["type_alerte"].value_counts().reset_index().rename(columns={"index": "Type d'Alerte", "type_alerte": "Nombre"}))
