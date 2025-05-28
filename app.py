@@ -13,26 +13,29 @@ def load_data():
     tests = pd.read_csv("tests_par_semaine_antibiotiques_2024.csv", sep=';', encoding='ISO-8859-1')
     antibio = pd.read_excel("other Antibiotiques staph aureus.xlsx")
     bacteria = pd.read_excel("TOUS les bacteries a etudier.xlsx")
-    export = pd.read_csv("Export_Antibiogramme_2024_anonymise.csv", sep=';', encoding='ISO-8859-1', low_memory=False)
+    export = pd.read_csv("Export_StaphAureus_COMPLET.csv", encoding='utf-8')
     return pheno, tests, antibio, bacteria, export
 
 pheno_df, tests_df, antibio_df, bacteria_df, export_df = load_data()
 
 st.set_page_config(page_title="Surveillance S. aureus 2024", layout="wide")
-st.title("\U0001F9A0 Dashboard - Staphylococcus aureus 2024")
+st.title("\U0001F9A0 Dashboard - Surveillance Bactériologique 2024")
 
-# Onglets
-onglet = st.tabs(["Bactéries", "Antibiotiques", "Phénotypes"])
+# Tabs
+onglet = st.tabs(["Toutes les bactéries", "Antibiotiques", "Phénotypes", "Tableau Interactif", "Alertes par Service"])
 
-# Onglet Bactéries
+# Onglet 1 : Liste des bactéries et lien vers S. aureus
 with onglet[0]:
-    st.header("\U0001F52C Résumé des bactéries à surveiller")
+    st.header("\U0001F52C Bactéries à surveiller")
+    selected_bacteria = st.selectbox("Choisissez une bactérie :", bacteria_df.iloc[:, 0].unique())
     st.dataframe(bacteria_df)
 
-# Onglet Antibiotiques
+    if "staph" in selected_bacteria.lower():
+        st.success("Vous avez sélectionné Staphylococcus aureus. Consultez les autres onglets pour l'analyse.")
+
+# Onglet 2 : Résistance Antibiotiques
 with onglet[1]:
     st.header("\U0001F489 Résistance hebdomadaire aux antibiotiques")
-
     selected_ab = st.selectbox("Choisir un antibiotique", antibio_df.columns[1:])
 
     df = antibio_df[["Week", selected_ab]].copy()
@@ -46,22 +49,24 @@ with onglet[1]:
     df["upper"] = df["p_hat"] + 1.96 * df["SE"]
     df["outlier"] = df["p"] > df["upper"]
 
+    if selected_ab.lower() == "vancomycine":
+        df["outlier"] = df["R"] >= 1
+
     fig = px.line(df, x="Week", y="p", markers=True, title=f"% de résistance hebdo - {selected_ab}")
     fig.add_scatter(x=df["Week"], y=df["upper"], mode="lines", name="Seuil d'alerte", line=dict(dash="dash", color="red"))
     fig.update_traces(marker=dict(size=10, color=df["outlier"].map({True: "darkred", False: "blue"})))
     st.plotly_chart(fig, use_container_width=True)
 
-# Onglet Phénotypes
+# Onglet 3 : Phénotypes
 with onglet[2]:
     st.header("\U0001F9EC Suivi des phénotypes de S. aureus")
-
     selected_pheno = st.selectbox("Choisir un phénotype", pheno_df.columns[1:-1])
+
     df = pheno_df[["Week", selected_pheno]].copy()
     df.columns = ["Week", "R"]
-    df["Total"] = pheno_df["MRSA"] + pheno_df["VRSA"] + pheno_df["Wild"] + pheno_df["Other"]
+    df["Total"] = pheno_df[["MRSA", "VRSA", "Wild", "Other"]].sum(axis=1)
 
-    # Exception pour VRSA ou Vancomycine
-    if selected_pheno.lower() in ["vrsa", "vancomycine"]:
+    if selected_pheno.lower() == "vrsa":
         df["outlier"] = df["R"] >= 1
     else:
         df["p"] = df["R"] / df["Total"]
@@ -76,9 +81,12 @@ with onglet[2]:
     fig.update_traces(marker=dict(size=10, color=df["outlier"].map({True: "darkred", False: "green"})))
     st.plotly_chart(fig, use_container_width=True)
 
-    if df["outlier"].any():
-        st.subheader("\U0001F6A8 Services concernés (Export 2024)")
-        export_df.columns = export_df.columns.str.lower()
-        alerts = export_df[(export_df["lib_germe"].str.lower().str.contains("staphylococcus aureus", na=False)) &
-                           (export_df["libelle demandeur"].notna())]
-        st.dataframe(alerts[["date prelevement", "libelle demandeur"]].drop_duplicates())
+# Onglet 4 : Tableau interactif
+with onglet[3]:
+    st.header("\U0001F4C4 Vue complète filtrable")
+    st.dataframe(pheno_df)
+
+# Onglet 5 : Services avec alertes
+with onglet[4]:
+    st.header("\U0001F6A8 Services concernés par des alertes")
+    st.dataframe(export_df[["uf", "numéro semaine", "lib_germe"]].drop_duplicates())
