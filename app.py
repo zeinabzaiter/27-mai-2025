@@ -56,36 +56,40 @@ with onglet[1]:
         df["outlier"] = df["R"] >= 1
 
     fig = px.line(df, x="Week", y="p", markers=True, title=f"% de résistance hebdo - {selected_ab}")
-    fig.add_scatter(x=df["Week"], y=df["upper"], mode="lines", name="Seuil d'alerte", line=dict(dash="dash", color="red"))
-    fig.update_traces(marker=dict(size=10, color=df["outlier"].map({True: "darkred", False: "blue"})))
+    fig.add_scatter(x=df["Week"], y=df["upper"], mode="lines", name="Seuil d'alerte", line=dict(dash="dot", color="red"))
+    fig.add_scatter(x=df[df["outlier"]]["Week"], y=df[df["outlier"]]["p"], mode="markers", name="Alerte", marker=dict(size=14, color="darkred"))
     st.plotly_chart(fig, use_container_width=True)
 
 # Onglet 3 : Phénotypes
 with onglet[2]:
     st.header("\U0001F9EC Suivi des phénotypes de S. aureus")
-    selected_pheno = st.selectbox("Choisir un phénotype", pheno_df.columns[1:-1])
 
-    df = pheno_df[["Week", selected_pheno]].copy()
-    df.columns = ["Week", "R"]
-    df["Total"] = pheno_df[["MRSA", "VRSA", "Wild", "Other"]].sum(axis=1)
+    phenos = st.multiselect("Choisir un ou plusieurs phénotypes", pheno_df.columns[1:-1], default=["Wild"])
 
-    df["R"] = pd.to_numeric(df["R"], errors="coerce")
-    df["Total"] = pd.to_numeric(df["Total"], errors="coerce")
+    for selected_pheno in phenos:
+        df = pheno_df[["Week", selected_pheno]].copy()
+        df.columns = ["Week", "R"]
+        df["Total"] = pheno_df[["MRSA", "VRSA", "Wild", "Other"]].sum(axis=1)
 
-    if selected_pheno.lower() == "vrsa":
-        df["outlier"] = df["R"] >= 1
-    else:
-        df["p"] = df["R"] / df["Total"]
-        df["n_last_8"] = df["Total"].rolling(window=8, min_periods=1).sum()
-        df["event_last_8"] = df["R"].rolling(window=8, min_periods=1).sum()
-        df["p_hat"] = df["event_last_8"] / df["n_last_8"]
-        df["SE"] = np.sqrt(df["p_hat"] * (1 - df["p_hat"]) / df["Total"])
-        df["upper"] = df["p_hat"] + 1.96 * df["SE"]
-        df["outlier"] = df["p"] > df["upper"]
+        df["R"] = pd.to_numeric(df["R"], errors="coerce")
+        df["Total"] = pd.to_numeric(df["Total"], errors="coerce")
 
-    fig = px.line(df, x="Week", y="R", markers=True, title=f"Cas hebdo - {selected_pheno}")
-    fig.update_traces(marker=dict(size=10, color=df["outlier"].map({True: "darkred", False: "green"})))
-    st.plotly_chart(fig, use_container_width=True)
+        if selected_pheno.lower() == "vrsa":
+            df["outlier"] = df["R"] >= 1
+            df["p"] = df["R"] / df["Total"]
+        else:
+            df["p"] = df["R"] / df["Total"]
+            df["n_last_8"] = df["Total"].rolling(window=8, min_periods=1).sum()
+            df["event_last_8"] = df["R"].rolling(window=8, min_periods=1).sum()
+            df["p_hat"] = df["event_last_8"] / df["n_last_8"]
+            df["SE"] = np.sqrt(df["p_hat"] * (1 - df["p_hat"]) / df["Total"])
+            df["upper"] = df["p_hat"] + 1.96 * df["SE"]
+            df["outlier"] = df["p"] > df["upper"]
+
+        fig = px.line(df, x="Week", y="p", markers=True, title=f"% hebdo - {selected_pheno}")
+        fig.add_scatter(x=df["Week"], y=df["upper"], mode="lines", name="Seuil d'alerte", line=dict(dash="dot", color="red"))
+        fig.add_scatter(x=df[df["outlier"]]["Week"], y=df[df["outlier"]]["p"], mode="markers", name="Alerte", marker=dict(size=14, color="darkred"))
+        st.plotly_chart(fig, use_container_width=True)
 
 # Onglet 4 : Tableau interactif
 with onglet[3]:
@@ -95,4 +99,6 @@ with onglet[3]:
 # Onglet 5 : Services avec alertes
 with onglet[4]:
     st.header("\U0001F6A8 Services concernés par des alertes")
-    st.dataframe(export_df[["uf", "numéro semaine", "lib_germe"]].drop_duplicates())
+    selected_week = st.selectbox("Semaine avec alerte", export_df["numéro semaine"].unique())
+    st.write(f"Alertes pour la semaine {selected_week} :")
+    st.dataframe(export_df[export_df["numéro semaine"] == selected_week][["uf", "lib_germe"]].drop_duplicates())
