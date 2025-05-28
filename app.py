@@ -1,12 +1,11 @@
-# app.py
-st.set_page_config(page_title="Surveillance S. aureus 2024", layout="wide")
-
+# app.py'
 import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
-import os
-st.write("📁 Fichiers présents dans le dossier :", os.listdir())
+
+st.set_page_config(page_title="Surveillance S. aureus 2024", layout="wide")
+
 
 # Load data
 @st.cache_data
