@@ -1,4 +1,5 @@
-# app.py'
+# app.py
+
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -6,16 +7,14 @@ import plotly.express as px
 
 st.set_page_config(page_title="Surveillance S. aureus 2024", layout="wide")
 
-
 # Load data
 @st.cache_data
-
 def load_data():
     pheno = pd.read_excel("staph_aureus_pheno_final.xlsx")
     tests = pd.read_csv("tests_par_semaine_antibiotiques_2024.csv", sep=';', encoding='ISO-8859-1')
     antibio = pd.read_excel("other Antibiotiques staph aureus.xlsx")
     bacteria = pd.read_excel("TOUS les bacteries a etudier.xlsx")
-    export = pd.read_csv("Export_StaphAureus_COMPLET.csv", encoding="utf-8")
+    export = pd.read_csv("Export_StaphAureus_COMPLET.csv", encoding='utf-8')
     return pheno, tests, antibio, bacteria, export
 
 pheno_df, tests_df, antibio_df, bacteria_df, export_df = load_data()
@@ -42,6 +41,9 @@ with onglet[1]:
     df = antibio_df[["Week", selected_ab]].copy()
     df.columns = ["Week", "R"]
     df["Total"] = tests_df.iloc[:, 0]
+
+    df["R"] = pd.to_numeric(df["R"], errors="coerce")
+    df["Total"] = pd.to_numeric(df["Total"], errors="coerce")
     df["p"] = df["R"] / df["Total"]
     df["n_last_8"] = df["Total"].rolling(window=8, min_periods=1).sum()
     df["event_last_8"] = df["R"].rolling(window=8, min_periods=1).sum()
@@ -66,6 +68,9 @@ with onglet[2]:
     df = pheno_df[["Week", selected_pheno]].copy()
     df.columns = ["Week", "R"]
     df["Total"] = pheno_df[["MRSA", "VRSA", "Wild", "Other"]].sum(axis=1)
+
+    df["R"] = pd.to_numeric(df["R"], errors="coerce")
+    df["Total"] = pd.to_numeric(df["Total"], errors="coerce")
 
     if selected_pheno.lower() == "vrsa":
         df["outlier"] = df["R"] >= 1
