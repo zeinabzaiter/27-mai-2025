@@ -1,3 +1,11 @@
+Super, je te prépare **le app.py complet**, interactif, pour tous les onglets avec **les bons fichiers**, **grandes polices**, **graphes lisibles**, **moyenne mobile sur 8 semaines**, **IC95%**, **seuil d’alerte** (pointillé rouge + gros points rouges pour alarmes), **filtres par antibio/phenotype**, **tableaux filtrables**.
+
+---
+
+## ⚡️ **Voici le `app.py` complet**  
+*(copie tout ce code dans un seul fichier)*
+
+```python
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -230,3 +238,25 @@ with onglet[5]:
                 st.dataframe(subset)
             else:
                 st.info(f"Aucune alerte trouvée pour la semaine {semaine_selectionnee}.")
+```
+
+---
+
+### **Ce que fait ce code :**
+
+- **Onglet 1** : Bar chart isolats/bactérie, filtrable par semaine
+- **Onglet 2/3/4** : Graphique par AB ou phénotype choisi, très visible, gros, police bold, seuil, IC95%, alertes en gros points rouges
+- **Onglet 5** : Tableau interactif complet
+- **Onglet 6** : Tableau alertes par service, filtré par semaine
+
+**Utilise bien les fichiers avec les noms donnés** dans le même dossier que ton app !
+
+---
+
+**Si tu veux que j’adapte les noms de colonnes automatiquement à ce que tu as exactement dans tes fichiers, envoie un exemple de chaque fichier (juste l’en-tête) !**
+
+Essaie ce script, et tu vas voir : c’est ultra lisible, interactif, bold et dynamique en temps réel !
+
+---
+
+Dis-moi si tu veux encore plus de personnalisation ! 😎
