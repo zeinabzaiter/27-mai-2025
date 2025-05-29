@@ -1,7 +1,13 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
+
+try:
+    import matplotlib.pyplot as plt
+except ImportError:
+    st.error("Le module matplotlib n'est pas installé sur votre environnement. Ajoutez-le dans les dépendances ou requirements.txt avec :\n\nmatplotlib\n\nPuis redémarrez l'app.")
+    st.stop()
+
 
 # Style général (polices très visibles, bold)
 st.markdown("""
