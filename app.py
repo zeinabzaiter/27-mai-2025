@@ -1,25 +1,28 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
-import plotly.graph_objects as go
+import os
 
-st.set_page_config(page_title="Surveillance S. aureus 2024", layout="wide")
+st.title("Debug - Vérification de fichiers")
 
-@st.cache_data
-def load_all_data():
-    df_export = pd.read_csv("Export_StaphAureus_COMPLET.csv")
-    df_bact = pd.read_excel("TOUS les bacteries a etudier.xlsx")
-    df_tests = pd.read_csv("tests_par_semaine_antibiotiques_2024.csv")
-    df_other = pd.read_excel("other Antibiotiques staph aureus.xlsx")
-    df_pheno = pd.read_excel("staph_aureus_pheno_final.xlsx")
-    return df_export, df_bact, df_tests, df_other, df_pheno
+files = [
+    "Export_StaphAureus_COMPLET.csv",
+    "TOUS les bacteries a etudier.xlsx",
+    "tests_par_semaine_antibiotiques_2024.csv",
+    "other Antibiotiques staph aureus.xlsx",
+    "staph_aureus_pheno_final.xlsx"
+]
+for f in files:
+    st.write(f, "existe:", os.path.exists(f))
 
-df_export, df_bact, df_tests, df_other, df_pheno = load_all_data()
+# Test des colonnes
+try:
+    df = pd.read_csv("Export_StaphAureus_COMPLET.csv")
+    st.write("Colonnes Export_StaphAureus_COMPLET.csv :", list(df.columns))
+except Exception as e:
+    st.error(f"Erreur lecture Export_StaphAureus_COMPLET.csv: {e}")
 
-st.markdown(
-    "<h1 style='text-align:center;font-size:3.2em;font-weight:900;'>🦠 DASHBOARD DE SURVEILLANCE BACTÉRIOLOGIQUE 2024</h1>",
-    unsafe_allow_html=True
-)
+# Pareil pour les autres si besoin
+
 
 tabs = st.tabs([
     "Toutes les bactéries", 
