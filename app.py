@@ -103,6 +103,7 @@ with onglet[3]:
         st.plotly_chart(fig, use_container_width=True)
 
 with onglet[4]:
+    st.write("Colonnes détectées dans export_df:", export_df.columns.tolist())
     st.header("Exploration Interactive")
     week_col = next((col for col in export_df.columns if "week" in col or "semaine" in col), None)
     if week_col is None:
