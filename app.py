@@ -34,6 +34,7 @@ def load_data():
 
     return pheno, tests, antibio, bacteria, export
 
+
 pheno_df, tests_df, antibio_df, bacteria_df, export_df = load_data()
 
 st.title("\U0001F9A0 Dashboard - Surveillance Bactériologique 2024")
