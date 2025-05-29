@@ -1,198 +1,195 @@
 import streamlit as st
 import pandas as pd
-import os
+import numpy as np
+import matplotlib.pyplot as plt
 
-st.title("Debug - Vérification de fichiers")
+# Style général (polices très visibles, bold)
+st.markdown("""
+    <style>
+        .css-10trblm, .css-1v3fvcr, .css-1d391kg { font-size:28px !important; font-weight:bold;}
+        .stDataFrame th, .stDataFrame td {font-size: 18px !important;}
+        h1, h2, h3, h4, h5, h6 { font-weight: bold !important;}
+        .element-container { font-size: 20px !important; }
+    </style>
+    """, unsafe_allow_html=True)
 
-files = [
-    "Export_StaphAureus_COMPLET.csv",
-    "TOUS les bacteries a etudier.xlsx",
-    "tests_par_semaine_antibiotiques_2024.csv",
-    "other Antibiotiques staph aureus.xlsx",
-    "staph_aureus_pheno_final.xlsx"
-]
-for f in files:
-    st.write(f, "existe:", os.path.exists(f))
+# 1. Chargement des données
+@st.cache_data
+def load_data():
+    data = {}
+    data["export_df"] = pd.read_csv("Export_StaphAureus_COMPLET.csv")
+    data["all_bact"] = pd.read_excel("TOUS les bacteries a etudier.xlsx")
+    data["other_ab"] = pd.read_excel("other Antibiotiques staph aureus.xlsx")
+    data["pheno"] = pd.read_excel("staph_aureus_pheno_final.xlsx")
+    data["tests_ab"] = pd.read_csv("tests_par_semaine_antibiotiques_2024.csv")
+    return data
 
-# Test des colonnes
-try:
-    df = pd.read_csv("Export_StaphAureus_COMPLET.csv")
-    st.write("Colonnes Export_StaphAureus_COMPLET.csv :", list(df.columns))
-except Exception as e:
-    st.error(f"Erreur lecture Export_StaphAureus_COMPLET.csv: {e}")
+dfs = load_data()
+export_df = dfs["export_df"]
+all_bact = dfs["all_bact"]
+other_ab = dfs["other_ab"]
+pheno = dfs["pheno"]
+tests_ab = dfs["tests_ab"]
 
-# Pareil pour les autres si besoin
+# Fonction utilitaire : rolling moyenne mobile et IC95%
+def rolling_with_ci(series, window=8):
+    rolling_mean = series.rolling(window=window, min_periods=1).mean()
+    rolling_std = series.rolling(window=window, min_periods=1).std()
+    n = series.rolling(window=window, min_periods=1).count()
+    ci95 = 1.96 * (rolling_std / np.sqrt(n))
+    return rolling_mean, ci95
 
+# TITRE principal
+st.markdown("<h1 style='font-size:48px; color:#19334d; font-weight:bold;'>Dashboard - Surveillance Bactériologique 2024</h1>", unsafe_allow_html=True)
 
-tabs = st.tabs([
-    "Toutes les bactéries", 
-    "Résistance - Tests", 
-    "Résistance - Other AB", 
-    "Phénotypes", 
-    "Tableau Interactif", 
+# Onglets
+onglet = st.tabs([
+    "Toutes les bactéries",
+    "Résistance - Tests",
+    "Résistance - Other AB",
+    "Phénotypes",
+    "Tableau Interactif",
     "Alertes par Service"
 ])
 
-############## ONGLET 1
-with tabs[0]:
-    st.markdown("<h2 style='font-size:2.5em;font-weight:900;'>🧫 Répartition des bactéries isolées</h2>", unsafe_allow_html=True)
-    semaine_col = next((c for c in df_export.columns if "semaine" in c.lower() or "week" in c.lower()), None)
-    germe_col = next((c for c in df_export.columns if "germe" in c.lower()), None)
-    if semaine_col and germe_col:
-        sem_liste = sorted(df_export[semaine_col].dropna().unique())
-        sem_filtre = st.multiselect("Filtrer par semaine :", sem_liste, default=sem_liste)
-        df_tmp = df_export[df_export[semaine_col].isin(sem_filtre)]
-        counts = df_tmp[germe_col].value_counts().sort_values(ascending=False)
-        fig = go.Figure(go.Bar(
-            x=counts.values, y=counts.index,
-            orientation='h',
-            marker=dict(color="black"),
-            text=counts.values, textposition='auto'
-        ))
-        fig.update_layout(
-            xaxis_title="Nombre d'isolats",
-            yaxis_title="Bactérie",
-            font=dict(size=22, color='black', family='Arial'),
-            plot_bgcolor="white"
-        )
-        st.plotly_chart(fig, use_container_width=True)
-    st.markdown("<h4 style='margin-top:2em;'>Tableau récapitulatif :</h4>", unsafe_allow_html=True)
-    st.dataframe(df_export[[semaine_col, germe_col]].value_counts().reset_index().rename({0:'nb'}, axis=1))
+# === ONGLET 1 : Toutes les bactéries ===
+with onglet[0]:
+    st.header("Nombre d'isolats par bactérie (filtrable par semaine)", divider="rainbow")
+    semaine_col = next((c for c in export_df.columns if "semaine" in c.lower()), None)
+    bacterie_col = next((c for c in export_df.columns if "germe" in c.lower() or "bact" in c.lower()), None)
+    if semaine_col and bacterie_col:
+        semaines = sorted(export_df[semaine_col].dropna().unique())
+        semaine_sel = st.selectbox("Filtrer par semaine :", options=["Toutes"] + [int(s) for s in semaines])
+        df_plot = export_df.copy()
+        if semaine_sel != "Toutes":
+            df_plot = df_plot[df_plot[semaine_col] == int(semaine_sel)]
+        counts = df_plot[bacterie_col].value_counts()
+        fig, ax = plt.subplots(figsize=(10,6))
+        bars = ax.bar(counts.index, counts.values, color='#2166ac')
+        ax.set_ylabel("Nombre d'isolats", fontsize=22, fontweight='bold')
+        ax.set_xlabel("Bactérie", fontsize=22, fontweight='bold')
+        ax.set_title("Répartition des isolats par bactérie", fontsize=26, fontweight='bold')
+        plt.xticks(rotation=45, ha='right', fontsize=18)
+        plt.yticks(fontsize=18)
+        for bar in bars:
+            ax.text(bar.get_x() + bar.get_width()/2, bar.get_height(), f"{int(bar.get_height())}", ha='center', va='bottom', fontsize=18, color='red', fontweight='bold')
+        st.pyplot(fig)
+    else:
+        st.error("Colonnes bactérie ou semaine non trouvées.")
 
-############## ONGLET 2
-def plot_resistance(df, titre, onglet_key):
-    semaine_col = next((c for c in df.columns if "semaine" in c.lower() or "week" in c.lower()), None)
-    ab_cols = [c for c in df.columns if "%" in c or "res" in c.lower()]
+# === ONGLET 2 : Résistance - Tests ===
+with onglet[1]:
+    st.header("Évolution % Résistance par antibiotique (tests principaux)", divider="rainbow")
+    ab_cols = [col for col in export_df.columns if col.startswith('q') or col in ['peni','oxa','fox','ctx','cro','cef','cli','ery','cip','sxt','tet','van']]
+    semaine_col = next((c for c in export_df.columns if "semaine" in c.lower()), None)
     if not ab_cols or not semaine_col:
-        st.warning("Colonnes de % résistance ou semaine absentes.")
-        return
-    selected_ab = st.selectbox("Choisir l'antibiotique :", ab_cols, key=onglet_key)
-    # Prépa Data
-    d = df[[semaine_col, selected_ab]].copy()
-    d = d.dropna()
-    d = d.sort_values(semaine_col)
-    d["p"] = pd.to_numeric(d[selected_ab], errors='coerce') / 100
-    # Rolling
-    d["n_last_8"] = 8
-    d["event_last_8"] = d["p"].rolling(8, min_periods=1).sum()
-    d["p_hat"] = d["event_last_8"] / d["n_last_8"]
-    d["se"] = np.sqrt(d["p_hat"] * (1-d["p_hat"]) / d["n_last_8"])
-    d["upper"] = d["p_hat"] + 1.96 * d["se"]
-    d["outlier"] = d["p"] > d["upper"]
-    # Plot
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=d[semaine_col], y=d["p"], mode="lines+markers",
-        name="% Résistance", line=dict(width=6, color='black'),
-        marker=dict(size=18, color="black")
-    ))
-    fig.add_trace(go.Scatter(
-        x=d[semaine_col], y=d["upper"], mode="lines",
-        name="Seuil d'alerte (IC 95%)", line=dict(width=5, color='red', dash='dot')
-    ))
-    fig.add_trace(go.Scatter(
-        x=d[d["outlier"]][semaine_col], y=d[d["outlier"]]["p"], mode="markers",
-        name="Alerte", marker=dict(size=30, color="darkred", symbol="circle"),
-        showlegend=True
-    ))
-    fig.update_layout(
-        title=f"<b style='font-size:2em'>{titre} - {selected_ab}</b>",
-        xaxis_title="Semaine", yaxis_title="% Résistance (proportion)",
-        font=dict(size=26, color='black', family='Arial'),
-        plot_bgcolor="white"
-    )
-    st.plotly_chart(fig, use_container_width=True)
-    if d["outlier"].any():
-        st.markdown("<b style='color:red;font-size:1.5em;'>🚨 Alerte(s) détectée(s) !</b>", unsafe_allow_html=True)
-        st.dataframe(d[d["outlier"]][[semaine_col, selected_ab, "upper"]])
+        st.error("Colonnes antibiotiques ou semaine manquantes.")
     else:
-        st.info("Aucune alerte détectée selon la règle IC + 8 semaines.")
+        ab_sel = st.selectbox("Choisir l'antibiotique :", ab_cols)
+        seuil_alerte = st.slider("Seuil d'alerte (%)", 0, 100, 50)
+        df_plot = export_df[[semaine_col, ab_sel]].dropna()
+        # On considère R comme résistance
+        res_count = df_plot.groupby(semaine_col)[ab_sel].apply(lambda x: (x == 'R').sum())
+        tot_count = df_plot.groupby(semaine_col)[ab_sel].count()
+        pct = (res_count / tot_count * 100).fillna(0)
+        roll, ci = rolling_with_ci(pct)
+        fig, ax = plt.subplots(figsize=(11,6))
+        ax.plot(pct.index, pct.values, '-o', label='% Résistance', color='#D7263D', linewidth=3, markersize=10)
+        ax.plot(roll.index, roll.values, '-s', label='Moy. mobile (8 sem)', color='#133C55', linewidth=4)
+        ax.fill_between(roll.index, roll-ci, roll+ci, color='#133C55', alpha=0.18, label='IC95%')
+        ax.axhline(seuil_alerte, color='red', linestyle='--', linewidth=3, label='Seuil Alerte')
+        ax.set_xlabel("Semaine", fontsize=20, fontweight='bold')
+        ax.set_ylabel("% Résistance", fontsize=20, fontweight='bold')
+        ax.set_title(f"Évolution de la résistance à {ab_sel}", fontsize=26, fontweight='bold')
+        ax.legend(fontsize=17, loc='upper left')
+        plt.xticks(fontsize=17)
+        plt.yticks(fontsize=17)
+        st.pyplot(fig)
 
-with tabs[1]:
-    st.markdown("<h2 style='font-size:2em;font-weight:900;'>💉 Résistance - Tests</h2>", unsafe_allow_html=True)
-    plot_resistance(df_tests, "Résistance hebdo (tests)", "res_tests")
-
-############## ONGLET 3
-with tabs[2]:
-    st.markdown("<h2 style='font-size:2em;font-weight:900;'>💉 Résistance - Other AB</h2>", unsafe_allow_html=True)
-    plot_resistance(df_other, "Résistance hebdo (other AB)", "res_other")
-
-############## ONGLET 4
-with tabs[3]:
-    st.markdown("<h2 style='font-size:2em;font-weight:900;'>Phénotypes (analyse dynamique)</h2>", unsafe_allow_html=True)
-    semaine_col = next((c for c in df_pheno.columns if "semaine" in c.lower() or "week" in c.lower()), None)
-    pheno_cols = [c for c in df_pheno.columns if c.lower() != semaine_col.lower()]
-    selected_pheno = st.selectbox("Choisir un phénotype :", pheno_cols)
-    d = df_pheno[[semaine_col, selected_pheno]].copy()
-    d = d.dropna().sort_values(semaine_col)
-    # Proportion % si c'est en nombre
-    if d[selected_pheno].max() > 1.1:
-        total = d[selected_pheno].rolling(8, min_periods=1).sum()
-        p = d[selected_pheno] / total
+# === ONGLET 3 : Résistance - Other AB ===
+with onglet[2]:
+    st.header("Évolution % Résistance autres antibiotiques", divider="rainbow")
+    semaine_col = next((c for c in other_ab.columns if "semaine" in c.lower()), None)
+    ab_cols = [col for col in other_ab.columns if col not in [semaine_col, 'id', 'uf', 'num_specimen', 'nature', 'code_germe', 'lib_germe']]
+    if not ab_cols or not semaine_col:
+        st.error("Colonnes manquantes dans autres antibiotiques.")
     else:
-        p = d[selected_pheno]
-    d["p"] = p
-    # IC
-    d["p_hat"] = d["p"].rolling(8, min_periods=1).mean()
-    d["se"] = np.sqrt(d["p_hat"] * (1-d["p_hat"]) / 8)
-    d["upper"] = d["p_hat"] + 1.96 * d["se"]
-    d["outlier"] = d["p"] > d["upper"]
-    # Plot
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=d[semaine_col], y=d["p"], mode="lines+markers",
-        name="% Phénotype", line=dict(width=6, color='black'),
-        marker=dict(size=18, color="black")
-    ))
-    fig.add_trace(go.Scatter(
-        x=d[semaine_col], y=d["upper"], mode="lines",
-        name="Seuil d'alerte (IC 95%)", line=dict(width=5, color='red', dash='dot')
-    ))
-    fig.add_trace(go.Scatter(
-        x=d[d["outlier"]][semaine_col], y=d[d["outlier"]]["p"], mode="markers",
-        name="Alerte", marker=dict(size=30, color="darkred", symbol="circle"),
-        showlegend=True
-    ))
-    fig.update_layout(
-        title=f"<b style='font-size:2em'>{selected_pheno}</b>",
-        xaxis_title="Semaine", yaxis_title="% ou nb (rolling)",
-        font=dict(size=26, color='black', family='Arial'),
-        plot_bgcolor="white"
-    )
-    st.plotly_chart(fig, use_container_width=True)
-    if d["outlier"].any():
-        st.markdown("<b style='color:red;font-size:1.5em;'>🚨 Alerte(s) détectée(s) !</b>", unsafe_allow_html=True)
-        st.dataframe(d[d["outlier"]][[semaine_col, selected_pheno, "upper"]])
-    else:
-        st.info("Aucune alerte détectée selon la règle IC + 8 semaines.")
+        ab_sel = st.selectbox("Choisir l'antibiotique :", ab_cols)
+        seuil_alerte = st.slider("Seuil d'alerte (%)", 0, 100, 30)
+        df_plot = other_ab[[semaine_col, ab_sel]].dropna()
+        res_count = df_plot.groupby(semaine_col)[ab_sel].apply(lambda x: (x == 'R').sum())
+        tot_count = df_plot.groupby(semaine_col)[ab_sel].count()
+        pct = (res_count / tot_count * 100).fillna(0)
+        roll, ci = rolling_with_ci(pct)
+        fig, ax = plt.subplots(figsize=(11,6))
+        ax.plot(pct.index, pct.values, '-o', label='% Résistance', color='#DA7635', linewidth=3, markersize=10)
+        ax.plot(roll.index, roll.values, '-s', label='Moy. mobile (8 sem)', color='#003049', linewidth=4)
+        ax.fill_between(roll.index, roll-ci, roll+ci, color='#003049', alpha=0.16, label='IC95%')
+        ax.axhline(seuil_alerte, color='red', linestyle='--', linewidth=3, label='Seuil Alerte')
+        ax.set_xlabel("Semaine", fontsize=20, fontweight='bold')
+        ax.set_ylabel("% Résistance", fontsize=20, fontweight='bold')
+        ax.set_title(f"Évolution autre AB : {ab_sel}", fontsize=26, fontweight='bold')
+        ax.legend(fontsize=17, loc='upper left')
+        plt.xticks(fontsize=17)
+        plt.yticks(fontsize=17)
+        st.pyplot(fig)
 
-############## ONGLET 5
-with tabs[4]:
-    st.markdown("<h2 style='font-size:2em;font-weight:900;'>🔎 Tableau interactif</h2>", unsafe_allow_html=True)
-    col_sel = st.multiselect("Colonnes à afficher :", options=list(df_export.columns), default=list(df_export.columns)[:7])
-    filtre_val = st.text_input("Filtrer (mot-clé sur toutes les colonnes affichées) :")
-    df_to_show = df_export[col_sel]
-    if filtre_val.strip():
-        mask = df_to_show.astype(str).apply(lambda s: filtre_val.lower() in s.lower()).any(axis=1)
-        df_to_show = df_to_show[mask]
-    st.dataframe(df_to_show, use_container_width=True)
-
-############## ONGLET 6
-with tabs[5]:
-    st.markdown("<h2 style='font-size:2em;font-weight:900;'>🚨 Alertes par Service</h2>", unsafe_allow_html=True)
-    semaine_col = next((c for c in df_export.columns if "semaine" in c.lower() or "week" in c.lower()), None)
-    uf_col = next((c for c in df_export.columns if "uf" in c.lower()), None)
-    alerte_col = next((c for c in df_export.columns if "alerte" in c.lower()), None)
-    germe_col = next((c for c in df_export.columns if "germe" in c.lower()), None)
-    sem_liste = sorted(df_export[semaine_col].dropna().unique())
-    s_choisie = st.selectbox("Semaine :", sem_liste, key="alerte_sem")
-    if None in [uf_col, alerte_col, germe_col, semaine_col]:
-        st.error("Colonnes 'uf', 'alerte', 'germe', ou 'semaine' manquantes.")
+# === ONGLET 4 : Phénotypes ===
+with onglet[3]:
+    st.header("Phénotypes (évolution, filtres, seuils…)", divider="rainbow")
+    semaine_col = next((c for c in pheno.columns if "semaine" in c.lower()), None)
+    pheno_cols = [col for col in pheno.columns if col not in [semaine_col, 'id', 'uf', 'nature', 'code_germe', 'lib_germe']]
+    if not pheno_cols or not semaine_col:
+        st.error("Colonnes manquantes dans phénotypes.")
     else:
-        filt = (df_export[semaine_col] == s_choisie) & (df_export[alerte_col].notnull())
-        df_alert = df_export.loc[filt, [semaine_col, uf_col, alerte_col, germe_col]].drop_duplicates()
-        if not df_alert.empty:
-            st.dataframe(df_alert, use_container_width=True)
+        pheno_sel = st.selectbox("Choisir le phénotype :", pheno_cols)
+        seuil_alerte = st.slider("Seuil d'alerte (%)", 0, 100, 10)
+        df_plot = pheno[[semaine_col, pheno_sel]].dropna()
+        res_count = df_plot.groupby(semaine_col)[pheno_sel].apply(lambda x: (x == 'R').sum())
+        tot_count = df_plot.groupby(semaine_col)[pheno_sel].count()
+        pct = (res_count / tot_count * 100).fillna(0)
+        roll, ci = rolling_with_ci(pct)
+        fig, ax = plt.subplots(figsize=(11,6))
+        ax.plot(pct.index, pct.values, '-o', label='% Phénotype', color='#008148', linewidth=3, markersize=10)
+        ax.plot(roll.index, roll.values, '-s', label='Moy. mobile (8 sem)', color='#165b33', linewidth=4)
+        ax.fill_between(roll.index, roll-ci, roll+ci, color='#165b33', alpha=0.16, label='IC95%')
+        ax.axhline(seuil_alerte, color='red', linestyle='--', linewidth=3, label='Seuil Alerte')
+        ax.set_xlabel("Semaine", fontsize=20, fontweight='bold')
+        ax.set_ylabel("%", fontsize=20, fontweight='bold')
+        ax.set_title(f"Évolution du phénotype : {pheno_sel}", fontsize=26, fontweight='bold')
+        ax.legend(fontsize=17, loc='upper left')
+        plt.xticks(fontsize=17)
+        plt.yticks(fontsize=17)
+        st.pyplot(fig)
+
+# === ONGLET 5 : Tableau Interactif ===
+with onglet[4]:
+    st.header("Exploration interactive du jeu de données", divider="rainbow")
+    # On affiche un filtre par colonne :
+    filter_col = st.selectbox("Filtrer sur la colonne :", export_df.columns)
+    search = st.text_input(f"Filtrer {filter_col} (laisser vide pour tout afficher) :")
+    df_plot = export_df.copy()
+    if search:
+        df_plot = df_plot[df_plot[filter_col].astype(str).str.contains(search, case=False, na=False)]
+    st.dataframe(df_plot, use_container_width=True, hide_index=True)
+
+# === ONGLET 6 : Alertes par Service ===
+with onglet[5]:
+    st.header("Alertes par service", divider="rainbow")
+    semaine_col = next((c for c in export_df.columns if "semaine" in c.lower()), None)
+    uf_col = next((c for c in export_df.columns if "uf" in c.lower()), None)
+    alerte_col = next((c for c in export_df.columns if "alerte" in c.lower()), None)
+    if None in [semaine_col, uf_col, alerte_col]:
+        st.error("Colonnes semaine, uf, ou alerte manquantes.")
+    else:
+        sem_dispo = sorted(export_df[semaine_col].dropna().unique())
+        sem_choisie = st.selectbox("Choisir la semaine :", options=sem_dispo)
+        subset = export_df[export_df[semaine_col]==sem_choisie]
+        alerts = subset[[uf_col, alerte_col]].drop_duplicates()
+        # Si alertes présentes :
+        if not alerts.empty:
+            st.dataframe(alerts, hide_index=True)
+            st.markdown("<span style='color: red; font-size:36px; font-weight:bold;'>🔴 ALERTE!</span>", unsafe_allow_html=True)
         else:
-            st.info("Aucune alerte détectée pour cette semaine.")
+            st.info("Aucune alerte cette semaine.")
 
