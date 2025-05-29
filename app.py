@@ -206,4 +206,27 @@ with onglet[4]:
 
 # ==============================
 # ONGLET 6 - Alertes par Service
-#
+# ==============================
+
+with onglet[5]:
+    st.header("\U0001F6A8 Services concernés par des alertes")
+    df = dfs["export"]
+    if df.empty:
+        st.error("Fichier Export_StaphAureus_COMPLET.csv manquant ou vide.")
+    else:
+        # Recherche automatique des colonnes
+        col_uf = next((col for col in df.columns if "uf" in col.lower()), None)
+        col_germe = next((col for col in df.columns if "germe" in col.lower()), None)
+        col_alerte = next((col for col in df.columns if "alerte" in col.lower()), None)
+        col_semaine = next((col for col in df.columns if "semaine" in col.lower()), None)
+        if None in [col_uf, col_germe, col_alerte, col_semaine]:
+            st.error("Colonnes requises manquantes dans export_df. Vérifiez les noms.")
+        else:
+            semaines = sorted(df[col_semaine].dropna().unique())
+            semaine_selectionnee = st.selectbox("Semaine avec alerte", semaines)
+            subset = df[df[col_semaine] == semaine_selectionnee][[col_uf, col_germe, col_alerte]].drop_duplicates()
+            if not subset.empty:
+                st.write(f"Alertes pour la semaine {semaine_selectionnee} :")
+                st.dataframe(subset)
+            else:
+                st.info(f"Aucune alerte trouvée pour la semaine {semaine_selectionnee}.")
