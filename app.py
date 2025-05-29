@@ -23,9 +23,7 @@ def load_data():
         df["Week"] = pd.to_numeric(df["Week"], errors="coerce")
 
     export.columns = export.columns.str.strip()
-    export.columns = export.columns.str.lower().str.replace(' ', '_')
-    export.columns = export.columns.str.normalize('NFKD').str.encode('ascii', errors='ignore').str.decode('utf-8')
-    export.rename(columns={"numro_semaine": "week"}, inplace=True)
+    export.columns = export.columns.str.lower().str.replace(' ', '_').str.normalize('NFKD').str.encode('ascii', errors='ignore').str.decode('utf-8')
 
     return pheno, tests, antibio, bacteria, export
 
@@ -84,7 +82,7 @@ with onglet[2]:
 with onglet[3]:
     st.header("Phénotypes - analyse interactive")
     pheno_df = pheno_df.copy()
-    phenos = [col for col in pheno_df.columns if col != "Week"]
+    phenos = [col for col in pheno_df.columns if col.lower() != "week"]
 
     for pheno in phenos:
         df_plot = pheno_df[["Week", pheno]].copy()
