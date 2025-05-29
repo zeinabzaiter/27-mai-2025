@@ -82,7 +82,7 @@ with onglet[2]:
 with onglet[3]:
     st.header("Phénotypes - analyse interactive")
     pheno_df = pheno_df.copy()
-    phenos = [col for col in pheno_df.columns if col.lower() != "week"]
+    phenos = [col for col in pheno_df.columns if col != "Week"]
 
     for pheno in phenos:
         df_plot = pheno_df[["Week", pheno]].copy()
@@ -103,9 +103,9 @@ with onglet[3]:
         st.plotly_chart(fig, use_container_width=True)
 
 with onglet[4]:
-    st.write("Colonnes détectées dans export_df:", export_df.columns.tolist())
     st.header("Exploration Interactive")
-    week_col = next((col for col in export_df.columns if "week" in col or "semaine" in col), None)
+    st.write("Colonnes détectées dans export_df:", export_df.columns.tolist())
+    week_col = next((col for col in export_df.columns if "week" in col.lower() or "semaine" in col.lower()), None)
     if week_col is None:
         st.error("Colonne 'week' absente de export_df")
     else:
@@ -116,10 +116,10 @@ with onglet[5]:
     st.header("\U0001F6A8 Services concernés par des alertes")
     semaine_selectionnee = st.number_input("Semaine avec alerte", min_value=1, max_value=52, step=1)
 
-    col_uf = next((col for col in export_df.columns if "uf" in col), None)
-    col_germe = next((col for col in export_df.columns if "germe" in col), None)
-    col_alerte = next((col for col in export_df.columns if "alerte" in col), None)
-    col_semaine = next((col for col in export_df.columns if "week" in col or "semaine" in col), None)
+    col_uf = next((col for col in export_df.columns if "uf" in col.lower()), None)
+    col_germe = next((col for col in export_df.columns if "germe" in col.lower()), None)
+    col_alerte = next((col for col in export_df.columns if "alerte" in col.lower()), None)
+    col_semaine = next((col for col in export_df.columns if "week" in col.lower() or "semaine" in col.lower()), None)
 
     if None in [col_uf, col_germe, col_alerte, col_semaine]:
         st.error("Colonnes requises manquantes dans export_df. Vérifiez les noms.")
