@@ -16,6 +16,7 @@ def load_data():
     bacteria = pd.read_excel("TOUS les bacteries a etudier.xlsx")
     export = pd.read_csv("Export_StaphAureus_COMPLET.csv", encoding='utf-8')
 
+    # Nettoyage des noms de colonnes
     for df in [tests, antibio]:
         df.columns = df.columns.str.strip()
         if "Semaine" in df.columns:
@@ -23,7 +24,13 @@ def load_data():
         df["Week"] = pd.to_numeric(df["Week"], errors="coerce")
 
     export.columns = export.columns.str.strip()
-    export.columns = export.columns.str.lower().str.replace(' ', '_').str.normalize('NFKD').str.encode('ascii', errors='ignore').str.decode('utf-8')
+    export.columns = export.columns.str.lower().str.replace(' ', '_').str.normalize('NFKD')\
+                         .str.encode('ascii', errors='ignore').str.decode('utf-8')
+
+    # Correction manuelle du nom de la colonne semaine si mal nommée
+    for col in export.columns:
+        if "semaine" in col and "unnamed" in col:
+            export.rename(columns={col: "week"}, inplace=True)
 
     return pheno, tests, antibio, bacteria, export
 
