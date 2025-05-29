@@ -4,6 +4,7 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.express as px
+import plotly.graph_objects as go
 
 st.set_page_config(page_title="Surveillance S. aureus 2024", layout="wide")
 
@@ -24,7 +25,8 @@ def load_data():
         df["Week"] = pd.to_numeric(df["Week"], errors="coerce")
 
     # Nettoyage export
-    export.columns = export.columns.str.strip().str.lower().str.normalize('NFKD').str.encode('ascii', errors='ignore').str.decode('utf-8')
+    export.columns = export.columns.str.strip()
+    export.columns = export.columns.str.lower().str.normalize('NFKD').str.encode('ascii', errors='ignore').str.decode('utf-8')
 
     return pheno, tests, antibio, bacteria, export
 
@@ -52,7 +54,6 @@ def tracer_resistance(df, source):
     df_plot = df[["Week", selected_ab]].copy()
     df_plot.columns = ["Week", "p"]
     df_plot["p"] = pd.to_numeric(df_plot["p"], errors="coerce") / 100
-
     df_plot = df_plot.dropna(subset=["Week", "p"])
     df_plot = df_plot.sort_values("Week")
 
@@ -63,9 +64,41 @@ def tracer_resistance(df, source):
     df_plot["upper"] = df_plot["p_hat"] + 1.96 * df_plot["SE"]
     df_plot["outlier"] = df_plot["p"] > df_plot["upper"]
 
-    fig = px.line(df_plot, x="Week", y="p", markers=True, title=f"% de résistance hebdo - {selected_ab}")
-    fig.add_scatter(x=df_plot["Week"], y=df_plot["upper"], mode="lines", name="Seuil d'alerte", line=dict(dash="dot", color="red"))
-    fig.add_scatter(x=df_plot[df_plot["outlier"]]["Week"], y=df_plot[df_plot["outlier"]]["p"], mode="markers", name="Alerte", marker=dict(size=12, color="darkred"))
+    fig = px.line(
+        df_plot,
+        x="Week",
+        y="p",
+        markers=True,
+        title=f"% hebdomadaire - {selected_ab}",
+        labels={"p": "%", "Week": "Semaine"}
+    )
+
+    fig.update_traces(line=dict(width=3, color="navy"), marker=dict(size=6, color="blue"))
+
+    fig.add_scatter(
+        x=df_plot["Week"],
+        y=df_plot["upper"],
+        mode="lines",
+        name="Seuil IC 95%",
+        line=dict(dash="dot", color="darkred", width=2)
+    )
+
+    fig.add_scatter(
+        x=df_plot[df_plot["outlier"]]["Week"],
+        y=df_plot[df_plot["outlier"]]["p"],
+        mode="markers",
+        name="Alerte",
+        marker=dict(size=12, color="crimson", symbol="diamond")
+    )
+
+    fig.update_layout(
+        xaxis_title="Semaine",
+        yaxis_title="%",
+        font=dict(color="black", size=14, family="Arial"),
+        xaxis=dict(title_font=dict(size=16, color="black", family="Arial")),
+        yaxis=dict(title_font=dict(size=16, color="black", family="Arial")),
+    )
+
     st.plotly_chart(fig, use_container_width=True)
 
     if df_plot["outlier"].any():
@@ -80,67 +113,66 @@ with onglet[1]:
     st.write(tests_df.head())
     tracer_resistance(tests_df, source="tests")
 
-with onglet[3]:
-    st.header("📊 Phénotypes - Tendance hebdomadaire avec alertes")
-    st.dataframe(pheno_df)
-
-    phenotypes = ["MRSA", "VRSA", "Other", "Wild"]
-    st.subheader("Analyse des pourcentages et détection des alertes")
-
-    total_col = pheno_df[phenotypes].sum(axis=1).replace(0, np.nan)
-for pheno in phenotypes:
-    st.markdown(f"### {pheno}")
-    
-    df_plot = pheno_df[["Week", pheno]].copy()
-    df_plot["Week"] = pd.to_numeric(df_plot["Week"], errors="coerce")
-    df_plot["total"] = pheno_df[phenotypes].sum(axis=1).replace(0, np.nan)
-    df_plot["p"] = df_plot[pheno] / df_plot["total"]
-    
-    df_plot = df_plot.dropna(subset=["Week", "p"])
-    df_plot = df_plot.sort_values("Week")
-
-    df_plot["n_last_8"] = 8
-    df_plot["event_last_8"] = df_plot["p"].rolling(window=8, min_periods=1).sum()
-    df_plot["p_hat"] = df_plot["event_last_8"] / df_plot["n_last_8"]
-    df_plot["SE"] = np.sqrt(df_plot["p_hat"] * (1 - df_plot["p_hat"]) / df_plot["n_last_8"])
-    df_plot["upper"] = df_plot["p_hat"] + 1.96 * df_plot["SE"]
-    df_plot["outlier"] = df_plot["p"] > df_plot["upper"]
-
-    fig = px.line(df_plot, x="Week", y="p", markers=True,
-                  title=f"% hebdomadaire - {pheno}",
-                  labels={"p": "%", "Week": "Semaine"})
-
-    fig.add_scatter(x=df_plot["Week"], y=df_plot["upper"], mode="lines",
-                    name="Seuil IC 95%", line=dict(dash="dot", color="red"))
-
-    fig.add_scatter(x=df_plot[df_plot["outlier"]]["Week"],
-                    y=df_plot[df_plot["outlier"]]["p"],
-                    mode="markers", name="Alerte",
-                    marker=dict(size=10, color="darkred", symbol="diamond"))
-
-    st.plotly_chart(fig, use_container_width=True)
-
-    if df_plot["outlier"].any():
-        st.warning("🚨 Semaines avec alertes détectées :")
-        st.dataframe(df_plot[df_plot["outlier"]][["Week", "p", "upper"]])
-    else:
-        st.success("✅ Aucune alerte détectée selon la règle IC + moyenne mobile (8 semaines).")
-
-
+# Onglet 3 : Antibiotiques - Other
+with onglet[2]:
+    st.header("\U0001F489 Résistance hebdomadaire (Other Antibiotiques)")
+    st.write(antibio_df.head())
+    tracer_resistance(antibio_df, source="other")
 
 # Onglet 4 : Phénotypes
 with onglet[3]:
-    st.header("📊 Phénotypes - Surveillance hebdomadaire")
-    st.dataframe(pheno_df)
+    st.header("Phénotypes - (en développement)")
+    st.write(pheno_df.head())
+    for col in ["MRSA", "VRSA", "Other"]:
+        st.subheader(col)
+        df_plot = pheno_df[["Week", col]].copy()
+        df_plot["p"] = df_plot[col] / (df_plot[col] + pheno_df["Wild"])
+        df_plot = df_plot.dropna(subset=["Week", "p"])
+        df_plot = df_plot.sort_values("Week")
 
-    st.subheader("Graphiques de tendance par phénotype")
-    phenotypes = ["MRSA", "VRSA", "Other", "Wild"]
-    for pheno in phenotypes:
-        st.markdown(f"### {pheno}")
-        fig = px.line(pheno_df, x="Week", y=pheno, markers=True,
-                      title=f"Tendance hebdomadaire - {pheno}")
+        df_plot["n_last_8"] = 8
+        df_plot["event_last_8"] = df_plot["p"].rolling(window=8, min_periods=1).sum()
+        df_plot["p_hat"] = df_plot["event_last_8"] / df_plot["n_last_8"]
+        df_plot["SE"] = np.sqrt(df_plot["p_hat"] * (1 - df_plot["p_hat"]) / df_plot["n_last_8"])
+        df_plot["upper"] = df_plot["p_hat"] + 1.96 * df_plot["SE"]
+        df_plot["outlier"] = df_plot["p"] > df_plot["upper"]
+
+        fig = px.line(
+            df_plot,
+            x="Week",
+            y="p",
+            markers=True,
+            title=f"% hebdomadaire - {col}",
+            labels={"p": "%", "Week": "Semaine"}
+        )
+
+        fig.update_traces(line=dict(width=3, color="navy"), marker=dict(size=6, color="blue"))
+
+        fig.add_scatter(
+            x=df_plot["Week"],
+            y=df_plot["upper"],
+            mode="lines",
+            name="Seuil IC 95%",
+            line=dict(dash="dot", color="darkred", width=2)
+        )
+
+        fig.add_scatter(
+            x=df_plot[df_plot["outlier"]]["Week"],
+            y=df_plot[df_plot["outlier"]]["p"],
+            mode="markers",
+            name="Alerte",
+            marker=dict(size=12, color="crimson", symbol="diamond")
+        )
+
+        fig.update_layout(
+            xaxis_title="Semaine",
+            yaxis_title="%",
+            font=dict(color="black", size=14, family="Arial"),
+            xaxis=dict(title_font=dict(size=16, color="black", family="Arial")),
+            yaxis=dict(title_font=dict(size=16, color="black", family="Arial")),
+        )
+
         st.plotly_chart(fig, use_container_width=True)
-
 
 # Onglet 5 : Tableau Interactif
 with onglet[4]:
@@ -153,7 +185,7 @@ with onglet[5]:
     st.header("\U0001F6A8 Services concernés par des alertes")
     semaine_selectionnee = st.number_input("Semaine avec alerte", min_value=1, max_value=52, step=1)
 
-    st.write("Colonnes dans export_df:", export_df.columns.tolist())
+    st.write("Colonnes disponibles :", export_df.columns.tolist())
 
     required_cols = ["numero semaine", "uf", "lib_germe", "type_alerte"]
     if all(col in export_df.columns for col in required_cols):
