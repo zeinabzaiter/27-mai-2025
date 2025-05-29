@@ -16,14 +16,12 @@ def load_data():
     bacteria = pd.read_excel("TOUS les bacteries a etudier.xlsx")
     export = pd.read_csv("Export_StaphAureus_COMPLET.csv", encoding='utf-8')
 
-    for df in [tests, antibio]:
-        df.columns = df.columns.str.strip()
-        if "Semaine" in df.columns:
-            df.rename(columns={"Semaine": "Week"}, inplace=True)
-        df["Week"] = pd.to_numeric(df["Week"], errors="coerce")
-
-    export.columns = export.columns.str.strip()
-    export.columns = export.columns.str.lower().str.replace(' ', '_').str.normalize('NFKD').str.encode('ascii', errors='ignore').str.decode('utf-8')
+    for df in [pheno, tests, antibio, export, bacteria]:
+        df.columns = df.columns.str.strip().str.lower().str.replace(' ', '_')
+        if "semaine" in df.columns:
+            df.rename(columns={"semaine": "week"}, inplace=True)
+        if "week" in df.columns:
+            df["week"] = pd.to_numeric(df["week"], errors="coerce")
 
     return pheno, tests, antibio, bacteria, export
 
@@ -41,15 +39,17 @@ with onglet[0]:
         st.success("Vous avez sélectionné Staphylococcus aureus. Consultez les autres onglets pour l'analyse.")
 
 def tracer_resistance(df, source):
-    ab_cols = [col for col in df.columns if "%" in col and "R" in col]
+    ab_cols = [col for col in df.columns if "%" in col and "r" in col.lower()]
     selected_ab = st.selectbox("Choisir un antibiotique (% colonne)", ab_cols, key=source)
 
-    df_plot = df[["Week", selected_ab]].copy()
-    df_plot.columns = ["Week", "p"]
-    df_plot["p"] = pd.to_numeric(df_plot["p"], errors="coerce") / 100
+    if "week" not in df.columns:
+        st.error("Colonne 'week' absente du jeu de données.")
+        return
 
-    df_plot = df_plot.dropna(subset=["Week", "p"])
-    df_plot = df_plot.sort_values("Week")
+    df_plot = df[["week", selected_ab]].copy()
+    df_plot.columns = ["week", "p"]
+    df_plot["p"] = pd.to_numeric(df_plot["p"], errors="coerce") / 100
+    df_plot = df_plot.dropna(subset=["week", "p"]).sort_values("week")
 
     df_plot["n_last_8"] = 8
     df_plot["event_last_8"] = df_plot["p"].rolling(window=8, min_periods=1).sum()
@@ -58,16 +58,16 @@ def tracer_resistance(df, source):
     df_plot["upper"] = df_plot["p_hat"] + 1.96 * df_plot["SE"]
     df_plot["outlier"] = df_plot["p"] > df_plot["upper"]
 
-    fig = px.line(df_plot, x="Week", y="p", markers=True, title=f"% de résistance hebdo - {selected_ab}")
+    fig = px.line(df_plot, x="week", y="p", markers=True, title=f"% de résistance hebdo - {selected_ab}")
     fig.update_traces(line=dict(width=3, color="black"))
-    fig.add_scatter(x=df_plot["Week"], y=df_plot["upper"], mode="lines", name="Seuil d'alerte", line=dict(dash="dot", color="red", width=3))
-    fig.add_scatter(x=df_plot[df_plot["outlier"]]["Week"], y=df_plot[df_plot["outlier"]]["p"], mode="markers", name="Alerte", marker=dict(size=12, color="darkred", symbol="diamond"))
+    fig.add_scatter(x=df_plot["week"], y=df_plot["upper"], mode="lines", name="Seuil d'alerte", line=dict(dash="dot", color="red", width=3))
+    fig.add_scatter(x=df_plot[df_plot["outlier"]]["week"], y=df_plot[df_plot["outlier"]]["p"], mode="markers", name="Alerte", marker=dict(size=12, color="darkred", symbol="diamond"))
 
     st.plotly_chart(fig, use_container_width=True)
 
     if df_plot["outlier"].any():
         st.subheader("\U0001F6A8 Semaines avec alerte")
-        st.dataframe(df_plot[df_plot["outlier"]][["Week", "p", "upper"]])
+        st.dataframe(df_plot[df_plot["outlier"]][["week", "p", "upper"]])
     else:
         st.info("Aucune alerte détectée selon la règle IC + moyenne mobile 8 semaines.")
 
@@ -81,54 +81,49 @@ with onglet[2]:
 
 with onglet[3]:
     st.header("Phénotypes - analyse interactive")
-    pheno_df = pheno_df.copy()
-    phenos = [col for col in pheno_df.columns if col != "Week"]
+    phenos = [col for col in pheno_df.columns if col != "week"]
 
     for pheno in phenos:
-        df_plot = pheno_df[["Week", pheno]].copy()
+        df_plot = pheno_df[["week", pheno]].copy()
         df_plot["total"] = pheno_df[phenos].sum(axis=1)
         df_plot["p"] = df_plot[pheno] / df_plot["total"]
-        df_plot = df_plot.sort_values("Week")
+        df_plot = df_plot.sort_values("week")
 
         df_plot["rolling"] = df_plot["p"].rolling(window=8, min_periods=1).mean()
         df_plot["SE"] = np.sqrt(df_plot["rolling"] * (1 - df_plot["rolling"]) / 8)
         df_plot["upper"] = df_plot["rolling"] + 1.96 * df_plot["SE"]
         df_plot["outlier"] = df_plot["p"] > df_plot["upper"]
 
-        fig = px.line(df_plot, x="Week", y="p", title=f"% hebdomadaire - {pheno}", markers=True)
+        fig = px.line(df_plot, x="week", y="p", title=f"% hebdomadaire - {pheno}", markers=True)
         fig.update_traces(line=dict(width=3, color="black"))
-        fig.add_scatter(x=df_plot["Week"], y=df_plot["upper"], mode="lines", name="Seuil d'alerte", line=dict(dash="dot", color="red", width=3))
-        fig.add_scatter(x=df_plot[df_plot["outlier"]]["Week"], y=df_plot[df_plot["outlier"]]["p"], mode="markers", name="Alerte", marker=dict(size=12, color="darkred", symbol="diamond"))
+        fig.add_scatter(x=df_plot["week"], y=df_plot["upper"], mode="lines", name="Seuil d'alerte", line=dict(dash="dot", color="red", width=3))
+        fig.add_scatter(x=df_plot[df_plot["outlier"]]["week"], y=df_plot[df_plot["outlier"]]["p"], mode="markers", name="Alerte", marker=dict(size=12, color="darkred", symbol="diamond"))
 
         st.plotly_chart(fig, use_container_width=True)
 
 with onglet[4]:
     st.header("Exploration Interactive")
-    week_col = next((col for col in export_df.columns if "week" in col.lower()), None)
-    if week_col is None:
-        st.error("Aucune colonne contenant 'week' trouvée dans export_df.")
+    if "week" not in export_df.columns:
+        st.error("Colonne 'week' absente de export_df")
     else:
-        df_plot = export_df.sort_values(week_col)
+        df_plot = export_df.sort_values("week")
         st.dataframe(df_plot)
 
 with onglet[5]:
     st.header("\U0001F6A8 Services concernés par des alertes")
     semaine_selectionnee = st.number_input("Semaine avec alerte", min_value=1, max_value=52, step=1)
 
-    def safe_col(name_part):
-        return next((col for col in export_df.columns if name_part in col.lower()), None)
+    try:
+        col_uf = [col for col in export_df.columns if "uf" in col.lower()][0]
+        col_germe = [col for col in export_df.columns if "germe" in col.lower()][0]
+        col_alerte = [col for col in export_df.columns if "alerte" in col.lower()][0]
+        col_semaine = [col for col in export_df.columns if "week" in col.lower()][0]
 
-    col_uf = safe_col("uf")
-    col_germe = safe_col("germe")
-    col_alerte = safe_col("alerte")
-    col_semaine = safe_col("semaine")
-
-    if None in [col_uf, col_germe, col_alerte, col_semaine]:
-        st.error("Colonnes manquantes dans export_df. Vérifiez les noms (UF, Germe, Alerte, Semaine).")
-    else:
         subset = export_df[export_df[col_semaine] == semaine_selectionnee][[col_uf, col_germe, col_alerte]].drop_duplicates()
         if not subset.empty:
             st.write(f"Alertes pour la semaine {semaine_selectionnee} :")
             st.dataframe(subset)
         else:
             st.info(f"Aucune alerte trouvée pour la semaine {semaine_selectionnee}.")
+    except Exception:
+        st.error("Colonnes manquantes ou erreur d'accès. Veuillez vérifier les noms des colonnes.")
