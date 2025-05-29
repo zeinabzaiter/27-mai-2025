@@ -104,29 +104,31 @@ with onglet[3]:
 
 with onglet[4]:
     st.header("Exploration Interactive")
-    week_col = [col for col in export_df.columns if "semaine" in col.lower()][0]
-    try:
+    week_col = next((col for col in export_df.columns if "week" in col.lower()), None)
+    if week_col is None:
+        st.error("Aucune colonne contenant 'week' trouvée dans export_df.")
+    else:
         df_plot = export_df.sort_values(week_col)
         st.dataframe(df_plot)
-    except Exception as e:
-        st.error(f"Colonne '{week_col}' absente de export_df")
 
 with onglet[5]:
     st.header("\U0001F6A8 Services concernés par des alertes")
     semaine_selectionnee = st.number_input("Semaine avec alerte", min_value=1, max_value=52, step=1)
 
-    export_cols = export_df.columns.str.lower()
-    col_uf = [col for col in export_df.columns if "uf" in col.lower()][0]
-    col_germe = [col for col in export_df.columns if "germe" in col.lower()][0]
-    col_alerte = [col for col in export_df.columns if "alerte" in col.lower()][0]
-    col_semaine = [col for col in export_df.columns if "semaine" in col.lower()][0]
+    def safe_col(name_part):
+        return next((col for col in export_df.columns if name_part in col.lower()), None)
 
-    try:
+    col_uf = safe_col("uf")
+    col_germe = safe_col("germe")
+    col_alerte = safe_col("alerte")
+    col_semaine = safe_col("semaine")
+
+    if None in [col_uf, col_germe, col_alerte, col_semaine]:
+        st.error("Colonnes manquantes dans export_df. Vérifiez les noms (UF, Germe, Alerte, Semaine).")
+    else:
         subset = export_df[export_df[col_semaine] == semaine_selectionnee][[col_uf, col_germe, col_alerte]].drop_duplicates()
         if not subset.empty:
             st.write(f"Alertes pour la semaine {semaine_selectionnee} :")
             st.dataframe(subset)
         else:
             st.info(f"Aucune alerte trouvée pour la semaine {semaine_selectionnee}.")
-    except Exception:
-        st.error("Colonnes manquantes ou erreur d'accès. Veuillez vérifier les noms des colonnes.")
