@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
-st.set_page_config(page_title="Résistance Tests", layout="wide")
+#st.set_page_config(page_title="Résistance Tests", layout="wide")
 
 st.title("🦠 Résistance - Tests antibiotiques")
 
