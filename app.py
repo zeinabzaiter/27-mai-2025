@@ -16,7 +16,6 @@ def load_data():
     bacteria = pd.read_excel("TOUS les bacteries a etudier.xlsx")
     export = pd.read_csv("Export_StaphAureus_COMPLET.csv", encoding='utf-8')
 
-    # Nettoyage des noms de colonnes
     for df in [tests, antibio]:
         df.columns = df.columns.str.strip()
         if "Semaine" in df.columns:
@@ -24,16 +23,11 @@ def load_data():
         df["Week"] = pd.to_numeric(df["Week"], errors="coerce")
 
     export.columns = export.columns.str.strip()
-    export.columns = export.columns.str.lower().str.replace(' ', '_').str.normalize('NFKD')\
-                         .str.encode('ascii', errors='ignore').str.decode('utf-8')
-
-    # Correction manuelle du nom de la colonne semaine si mal nommée
-    for col in export.columns:
-        if "semaine" in col and "unnamed" in col:
-            export.rename(columns={col: "week"}, inplace=True)
+    export.columns = export.columns.str.lower().str.replace(' ', '_')
+    export.columns = export.columns.str.normalize('NFKD').str.encode('ascii', errors='ignore').str.decode('utf-8')
+    export.rename(columns={"numro_semaine": "week"}, inplace=True)
 
     return pheno, tests, antibio, bacteria, export
-
 
 pheno_df, tests_df, antibio_df, bacteria_df, export_df = load_data()
 
@@ -112,7 +106,6 @@ with onglet[3]:
 
 with onglet[4]:
     st.header("Exploration Interactive")
-    st.write("Colonnes détectées dans export_df:", export_df.columns.tolist())
     week_col = next((col for col in export_df.columns if "week" in col.lower() or "semaine" in col.lower()), None)
     if week_col is None:
         st.error("Colonne 'week' absente de export_df")
